@@ -1,0 +1,769 @@
+/* Estilos del Cliente_Jugador: temática de "banda de ladrones" (tonos oscuros,
+   acentos dorados de Bóveda y rojos de Alarma). Todo el texto va en español. */
+
+:root {
+  --fondo: #14171c;
+  --panel: #1e232b;
+  --panel-borde: #2c333d;
+  --texto: #e8e6e0;
+  --texto-tenue: #9aa3ad;
+  --oro: #d9a521;
+  --oro-fuerte: #f0bd2e;
+  --alarma: #c0392b;
+  --verde: #2e7d57;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at top, #1c2128, var(--fondo));
+  color: var(--texto);
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.app__cabecera h1 {
+  margin: 0;
+  font-size: 2.4rem;
+  letter-spacing: 0.08em;
+  color: var(--oro);
+}
+
+.app__lema {
+  margin: 0.25rem 0 1rem;
+  color: var(--texto-tenue);
+  font-style: italic;
+}
+
+.banner {
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.banner--conectando {
+  background: #2a2f1c;
+  color: var(--oro-fuerte);
+}
+
+.banner--conectado {
+  background: #16301f;
+  color: #6ad29a;
+}
+
+.banner--desconectado {
+  background: #321a18;
+  color: #e88b80;
+}
+
+.alerta {
+  background: rgba(192, 57, 43, 0.15);
+  border: 1px solid var(--alarma);
+  color: #f0b3ab;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.lobby,
+.marcador {
+  background: var(--panel);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.lobby__cabecera h2 {
+  margin-top: 0;
+  color: var(--oro);
+}
+
+.lobby__intro {
+  color: var(--texto-tenue);
+}
+
+.lobby__formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.lobby__formulario label {
+  font-weight: 600;
+}
+
+.lobby__formulario input {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--panel-borde);
+  background: #11151a;
+  color: var(--texto);
+  font-size: 1rem;
+}
+
+.lobby__estado-unido {
+  color: #6ad29a;
+  font-weight: 600;
+}
+
+.lobby__miembros h3 {
+  margin-bottom: 0.5rem;
+}
+
+.lobby__lista {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lobby__jugador {
+  background: #11151a;
+  border-left: 3px solid var(--oro);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+}
+
+.lobby__vacio {
+  color: var(--texto-tenue);
+  font-style: italic;
+}
+
+.lobby__tu {
+  color: var(--oro);
+  font-size: 0.85rem;
+}
+
+.lobby__aviso {
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.boton {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 0.7rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: filter 0.15s ease;
+}
+
+.boton:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.boton--principal {
+  background: var(--panel-borde);
+  color: var(--texto);
+}
+
+.boton--golpe {
+  width: 100%;
+  background: var(--oro);
+  color: #1a1206;
+}
+
+.boton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.marcador h2 {
+  color: var(--oro);
+  margin-top: 0;
+}
+
+/* =========================================================================
+   Mesa de juego (fase EN_CURSO)
+   ========================================================================= */
+
+.mesa {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Recordatorio permanente de no revelar cartas ni hacer bluff (criterio 10.2). */
+.recordatorio {
+  background: rgba(217, 165, 33, 0.12);
+  border: 1px solid var(--oro);
+  color: var(--oro-fuerte);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.recordatorio strong {
+  color: var(--oro);
+}
+
+.mesa__cabecera {
+  background: var(--panel);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+
+.mesa__cabecera h2 {
+  margin: 0;
+  color: var(--oro);
+}
+
+.mesa__ronda-ayuda {
+  margin: 0.35rem 0 0;
+  color: var(--texto-tenue);
+}
+
+.bloque {
+  background: var(--panel);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+
+.bloque h3 {
+  margin: 0 0 0.6rem;
+  color: var(--texto);
+  font-size: 1.05rem;
+}
+
+.bloque__nota {
+  color: var(--texto-tenue);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.bloque--privado {
+  border-color: var(--oro);
+}
+
+.mesa__sin-cartas,
+.mesa__espera {
+  color: var(--texto-tenue);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Marcador de Bóvedas y Alarmas. */
+.marcador-juego {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.marcador-juego__grupo {
+  flex: 1 1 160px;
+  background: var(--panel);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.marcador-juego__titulo {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.marcador-juego__iconos {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.marcador-juego__cuenta {
+  color: var(--texto-tenue);
+  font-size: 0.85rem;
+}
+
+.marca {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-borde);
+  display: inline-block;
+}
+
+.marca--boveda-lleno {
+  background: var(--oro);
+  border-color: var(--oro-fuerte);
+}
+
+.marca--boveda-vacio {
+  background: #2a2410;
+}
+
+.marca--alarma-lleno {
+  background: var(--alarma);
+  border-color: #e8786b;
+}
+
+.marca--alarma-vacio {
+  background: #2a1614;
+}
+
+/* Cartas. */
+.cartas-fila {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cartas-fila--mini .carta {
+  width: 34px;
+  height: 48px;
+  font-size: 0.9rem;
+}
+
+.carta {
+  width: 48px;
+  height: 66px;
+  border-radius: 6px;
+  background: #f4f1e8;
+  color: #14171c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.carta--roja {
+  color: #b3261e;
+}
+
+.carta--negra {
+  color: #14171c;
+}
+
+.carta__valor {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.carta__palo {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.carta--dorso {
+  background: repeating-linear-gradient(45deg, #2c333d, #2c333d 6px, #20262e 6px, #20262e 12px);
+  color: var(--oro);
+  border: 1px solid var(--panel-borde);
+}
+
+/* Fichas. */
+.fichas-fila {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ficha,
+.ficha-boton {
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ficha {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+}
+
+.ficha-boton {
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  padding: 0.45rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 64px;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.ficha-boton:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.ficha-boton__estrellas {
+  font-size: 0.95rem;
+}
+
+.ficha-boton__accion {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ficha--blanco {
+  background: #ece9e1;
+  color: #14171c;
+}
+
+.ficha--amarillo {
+  background: #e6c84a;
+  color: #2a2306;
+}
+
+.ficha--naranja {
+  background: #e08a36;
+  color: #2a1606;
+}
+
+.ficha--rojo {
+  background: #c0392b;
+  color: #f7e9e7;
+}
+
+/* La banda (lista de jugadores). */
+.banda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.banda__jugador {
+  background: #11151a;
+  border: 1px solid var(--panel-borde);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.banda__info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.banda__nombre {
+  font-weight: 600;
+}
+
+.banda__tu {
+  color: var(--oro);
+  font-size: 0.85rem;
+}
+
+.banda__fichas {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.banda__sin-fichas {
+  color: var(--texto-tenue);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.boton--secundario {
+  background: var(--panel-borde);
+  color: var(--texto);
+  align-self: flex-start;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* Acciones de avance. */
+.mesa__acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mesa__acciones-ayuda {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.85rem;
+}
+
+/* =========================================================================
+   Showdown: revelado de manos en orden de Ficha roja (criterio 8.2)
+   ========================================================================= */
+
+.showdown__ayuda {
+  margin: 0 0 0.8rem;
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}
+
+.showdown__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.showdown__jugador {
+  background: #11151a;
+  border: 1px solid var(--panel-borde);
+  border-left: 3px solid var(--alarma);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.showdown__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.showdown__nombre {
+  font-weight: 600;
+}
+
+.showdown__categoria {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.95rem;
+}
+
+.showdown__categoria strong {
+  color: var(--oro-fuerte);
+}
+
+/* =========================================================================
+   Resultado final de la Partida (fase FINALIZADA, criterio 9.3)
+   ========================================================================= */
+
+.resultado {
+  background: var(--panel);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.resultado--victoria {
+  border-color: var(--oro);
+  box-shadow: 0 0 24px rgba(217, 165, 33, 0.25);
+}
+
+.resultado--derrota {
+  border-color: var(--alarma);
+  box-shadow: 0 0 24px rgba(192, 57, 43, 0.25);
+}
+
+.resultado__titulo {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  color: var(--oro);
+}
+
+.resultado--derrota .resultado__titulo {
+  color: #e88b80;
+}
+
+.resultado__mensaje {
+  margin: 0 0 1.5rem;
+  color: var(--texto);
+  font-size: 1.1rem;
+  font-style: italic;
+}
+
+.resultado__marcador {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.resultado__contador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 140px;
+  background: #11151a;
+  border: 1px solid var(--panel-borde);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+}
+
+.resultado__etiqueta {
+  font-size: 0.85rem;
+  color: var(--texto-tenue);
+}
+
+.resultado__valor {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.resultado__valor--oro {
+  color: var(--oro);
+}
+
+.resultado__valor--alarma {
+  color: #e88b80;
+}
+
+/* =========================================================================
+   Panel consultable del Ranking_de_Manos (global, criterio 11.3)
+   ========================================================================= */
+
+.ranking-boton {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 50;
+  cursor: pointer;
+  border: 1px solid var(--oro);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--oro-fuerte);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.ranking-boton:hover {
+  filter: brightness(1.12);
+}
+
+.ranking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ranking-overlay[hidden] {
+  display: none;
+}
+
+.ranking-panel {
+  background: var(--panel);
+  border: 1px solid var(--oro);
+  border-radius: 12px;
+  padding: 1.25rem;
+  max-width: 460px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+.ranking-panel__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ranking-panel__cabecera h2 {
+  margin: 0;
+  color: var(--oro);
+}
+
+.ranking-panel__cerrar {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--texto-tenue);
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 0 0.3rem;
+}
+
+.ranking-panel__cerrar:hover {
+  color: var(--texto);
+}
+
+.ranking-panel__intro {
+  margin: 0.5rem 0 1rem;
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}
+
+.ranking__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  counter-reset: ranking;
+}
+
+.ranking__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #11151a;
+  border: 1px solid var(--panel-borde);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.ranking__posicion {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--oro);
+  color: #1a1206;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ranking__detalle {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking__nombre {
+  font-weight: 600;
+}
+
+.ranking__descripcion {
+  color: var(--texto-tenue);
+  font-size: 0.85rem;
+}
