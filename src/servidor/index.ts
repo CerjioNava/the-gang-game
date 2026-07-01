@@ -47,9 +47,15 @@ async function main(): Promise<void> {
     try {
       const direccion = await servidor.iniciar(puerto);
       console.log('[The Gang] Servidor_Local en marcha.');
-      console.log(`[The Gang] Comparte esta dirección con tu equipo: ${direccion.url}`);
+      console.log('');
+      console.log('[The Gang] Comparte esta URL con tu equipo (IPv4 + puerto):');
+      console.log(`       ${direccion.url}`);
+      console.log('');
       console.log(
-        `[The Gang] (IP LAN: ${direccion.ipLan}, puerto: ${direccion.puerto})`,
+        `[The Gang] IPv4 detectada: ${direccion.ipLan}  ·  puerto: ${direccion.puerto}`,
+      );
+      console.log(
+        `[The Gang] En este equipo también puedes abrir: http://localhost:${direccion.puerto}`,
       );
 
       const cerrar = (): void => {

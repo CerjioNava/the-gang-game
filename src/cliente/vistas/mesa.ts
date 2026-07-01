@@ -42,6 +42,8 @@ export interface AccionesMesa {
   avanzar(): void;
   /** Resuelve el Golpe cuando la Ronda activa es el Showdown. */
   resolverShowdown(): void;
+  /** Termina la Partida y devuelve a todos al Lobby (solo anfitrión). */
+  terminarPartida(): void;
 }
 
 // ===========================================================================
@@ -178,8 +180,12 @@ export function renderizarMesa(
   contenedor.innerHTML = `
     <section class="mesa${esEspectador ? ' mesa--espectador' : ''}">
       ${esEspectador ? bannerEspectadorHtml() : recordatorioHtml()}
+      ${botonTerminarPartidaHtml(vista)}
+      ${resultadoGolpeRecienteHtml(vista)}
       ${cabeceraGolpeHtml(vista, golpe)}
       ${marcadorHtml(vista)}
+      ${historialGolpesHtml(vista)}
+      ${!esShowdown ? temporizadorSeccionHtml(golpe) : ''}
       ${comunitariasHtml(golpe)}
       ${esEspectador ? '' : bolsilloPropioHtml(vista)}
       ${centroFichasHtml(fichas.centro, colorActivo, tengoFichaActiva, esShowdown, esEspectador)}
@@ -236,6 +242,82 @@ function cabeceraGolpeHtml(vista: VistaPartida, golpe: VistaGolpe): string {
       <h2>Golpe ${vista.golpesJugados + 1} · ${escapar(etiquetaRonda)}</h2>
       <p class="mesa__ronda-ayuda">${escapar(ayudaRonda)}</p>
     </header>`;
+}
+
+/** Botón para que el anfitrión termine la Partida y vuelva al Lobby. */
+function botonTerminarPartidaHtml(vista: VistaPartida): string {
+  const yoId = vista.perspectivaJugadorId;
+  if (vista.esEspectador || vista.anfitrionId !== yoId) {
+    return '';
+  }
+  return `
+    <div class="mesa__admin">
+      <button type="button" id="boton-terminar-partida" class="boton boton--alias">
+        Terminar partida
+      </button>
+    </div>`;
+}
+
+/** Banner con el resultado del último Golpe resuelto. */
+function resultadoGolpeRecienteHtml(vista: VistaPartida): string {
+  if (vista.ultimoShowdownResuelto !== null) {
+    return '';
+  }
+  const r = vista.ultimoResultadoGolpe;
+  if (r === null) {
+    return '';
+  }
+  if (r.exito) {
+    return `
+      <div class="mesa__resultado-golpe mesa__resultado-golpe--exito" role="status">
+        <strong>¡Bóveda abierta!</strong> El Golpe ${r.numero} fue un éxito.
+      </div>`;
+  }
+  return `
+    <div class="mesa__resultado-golpe mesa__resultado-golpe--fracaso" role="status">
+      <strong>¡Alarma activada!</strong> El Golpe ${r.numero} fracasó.
+    </div>`;
+}
+
+/** Historial de Golpes ya resueltos. */
+function historialGolpesHtml(vista: VistaPartida): string {
+  if (vista.historialGolpes.length === 0) {
+    return '';
+  }
+  const filas = vista.historialGolpes
+    .map((entrada) => {
+      const texto = entrada.exito
+        ? `Golpe ${entrada.numero}: bóveda abierta`
+        : `Golpe ${entrada.numero}: alarma activada`;
+      const clase = entrada.exito ? 'historial-golpe--exito' : 'historial-golpe--fracaso';
+      return `<li class="historial-golpe ${clase}">${escapar(texto)} · ${entrada.bovedasTras} bóvedas / ${entrada.alarmasTras} alarmas</li>`;
+    })
+    .join('');
+  return `
+    <details class="bloque historial-golpes" open>
+      <summary class="historial-golpes__titulo">Historial de golpes</summary>
+      <ol class="historial-golpes__lista">${filas}</ol>
+    </details>`;
+}
+
+/** Temporizador visible de avance automático de ronda. */
+function temporizadorHtml(golpe: VistaGolpe): string {
+  const finAt = golpe.temporizadorFinAt;
+  if (finAt == null || finAt <= Date.now()) {
+    return '';
+  }
+  const segundos = Math.max(1, Math.ceil((finAt - Date.now()) / 1000));
+  return `
+    <div class="mesa__temporizador" role="timer" aria-live="polite">
+      <span class="mesa__temporizador-etiqueta">Avance automático en</span>
+      <span class="mesa__temporizador-valor">${segundos}s</span>
+      <span class="mesa__temporizador-ayuda">Si alguien intercambia fichas, el temporizador se reinicia.</span>
+    </div>`;
+}
+
+function temporizadorSeccionHtml(golpe: VistaGolpe): string {
+  const html = temporizadorHtml(golpe);
+  return html === '' ? '' : html;
 }
 
 /** Marcador de Bóvedas doradas y Alarmas rojas (objetivo: 3 / penalización: 3). */
@@ -470,21 +552,21 @@ function accionesHtml(esShowdown: boolean, vista?: VistaPartida): string {
   const totalJugadores = vista?.jugadores.length ?? 0;
   const pendientes = totalJugadores - confirmados.length;
 
-  // Comprobar si el jugador tiene ficha del color activo
   const misFichas = golpe?.fichas.porJugador[yoId] ?? [];
   const colorActivo = golpe?.fichas.colorActivo;
   const tengoFichaActiva = colorActivo != null && misFichas.some((f) => f.color === colorActivo);
 
   const deshabilitado = yaConfirme || !tengoFichaActiva ? ' disabled' : '';
-  const textoBoton = yaConfirme ? '✓ Confirmado' : 'Confirmar ficha';
+  const textoBoton = yaConfirme ? '✓ Confirmado' : 'Confirmar ficha (avance inmediato)';
 
-  const mensajeEspera = pendientes > 0
-    ? `<p class="mesa__acciones-ayuda">Esperando confirmación de ${pendientes} miembro${pendientes === 1 ? '' : 's'}…</p>`
-    : '';
+  const mensajeEspera =
+    pendientes > 0 && (golpe?.temporizadorFinAt ?? null) === null
+      ? `<p class="mesa__acciones-ayuda">Esperando que todos tengan ficha de esta fase…</p>`
+      : '';
 
   return `
     <div class="mesa__acciones">
-      <button type="button" id="boton-avanzar" class="boton boton--golpe"${deshabilitado}>
+      <button type="button" id="boton-avanzar" class="boton boton--secundario"${deshabilitado}>
         ${textoBoton}
       </button>
       ${mensajeEspera}
@@ -549,4 +631,7 @@ function enlazarEventos(contenedor: HTMLElement, acciones: AccionesMesa): void {
   contenedor
     .querySelector<HTMLButtonElement>('#boton-resolver')
     ?.addEventListener('click', () => acciones.resolverShowdown());
+  contenedor
+    .querySelector<HTMLButtonElement>('#boton-terminar-partida')
+    ?.addEventListener('click', () => acciones.terminarPartida());
 }

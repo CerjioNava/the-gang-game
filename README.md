@@ -56,11 +56,15 @@ Al arrancar verás algo como:
 
 ```
 [The Gang] Servidor_Local en marcha.
-[The Gang] Comparte esta dirección con tu equipo: http://192.168.1.42:3000
-[The Gang] (IP LAN: 192.168.1.42, puerto: 3000)
+
+[The Gang] Comparte esta URL con tu equipo (IPv4 + puerto):
+       http://192.168.1.42:3000
+
+[The Gang] IPv4 detectada: 192.168.1.42  ·  puerto: 3000
+[The Gang] En este equipo también puedes abrir: http://localhost:3000
 ```
 
-Comparte esa URL con tus compañeros. Cada uno la abre en su navegador, se une con un nombre y, con **3 a 6 jugadores**, podéis dar el golpe.
+Comparte la URL con IPv4 con tus compañeros. Cada uno la abre en su navegador, se une con un nombre y, con **3 a 6 jugadores**, podéis dar el golpe.
 
 > El Anfitrión también juega: basta con abrir la misma dirección (o `http://localhost:3000`) en su navegador.
 

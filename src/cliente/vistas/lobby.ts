@@ -283,26 +283,6 @@ export function renderizarLobby(
 
 
 
-      ${
-
-        esEspectador
-
-          ? `<p class="lobby__estado-unido lobby__estado-espectador">Estás observando como espectador. Esperando a que dé comienzo el golpe…</p>`
-
-          : esJugador
-
-          ? `<p class="lobby__estado-unido">Estás dentro de la banda. Esperando a más miembros…</p>`
-
-          : `
-
-        ${selectorAliasHtml(estado)}
-
-        `
-
-      }
-
-
-
       <div class="lobby__miembros">
 
         <h3>Miembros de la banda (${total}/${JUGADORES_MAX})</h3>
@@ -320,6 +300,26 @@ export function renderizarLobby(
         <ul class="lobby__lista">${listaEspectadoresHtml}</ul>
 
       </div>
+
+
+
+      ${
+
+        esEspectador
+
+          ? `<p class="lobby__estado-unido lobby__estado-espectador">Estás observando como espectador. Esperando a que dé comienzo el golpe…</p>`
+
+          : esJugador
+
+          ? `<p class="lobby__estado-unido">Estás dentro de la banda. Esperando a más miembros…</p>`
+
+          : `
+
+        ${selectorAliasHtml(estado)}
+
+        `
+
+      }
 
 
 

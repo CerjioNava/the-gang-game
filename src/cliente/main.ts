@@ -22,7 +22,7 @@ import {
   type AccionesLobby,
 } from './vistas/lobby';
 import { renderizarMesa, type AccionesMesa } from './vistas/mesa';
-import { renderizarShowdown, renderizarResultado } from './vistas/showdown';
+import { renderizarShowdown, renderizarShowdownResuelto, renderizarResultado } from './vistas/showdown';
 import { montarRanking } from './vistas/ranking';
 import type { Ficha } from './protocolo';
 
@@ -164,7 +164,33 @@ const accionesMesa: AccionesMesa = {
   resolverShowdown() {
     conexion.enviar(mensajes.resolverShowdown());
   },
+  terminarPartida() {
+    conexion.enviar(mensajes.terminarPartida());
+  },
 };
+
+let temporizadorTick: ReturnType<typeof setInterval> | null = null;
+
+function programarTickTemporizador(vista: EstadoCliente['vista']): void {
+  if (temporizadorTick !== null) {
+    clearInterval(temporizadorTick);
+    temporizadorTick = null;
+  }
+  const finAt = vista?.golpeActual?.temporizadorFinAt;
+  if (finAt == null || finAt <= Date.now()) {
+    return;
+  }
+  temporizadorTick = setInterval(() => {
+    const actual = store.obtener().vista?.golpeActual?.temporizadorFinAt;
+    if (actual == null || actual <= Date.now()) {
+      if (temporizadorTick !== null) {
+        clearInterval(temporizadorTick);
+        temporizadorTick = null;
+      }
+    }
+    render(store.obtener());
+  }, 500);
+}
 
 // ===========================================================================
 // Render principal
@@ -225,14 +251,27 @@ function render(estado: EstadoCliente): void {
     renderizarLobby(cuerpo, estado, accionesLobby);
   } else if (fase === 'EN_CURSO') {
     renderizarMesa(cuerpo, estado, accionesMesa);
-    if (estado.vista?.golpeActual?.ronda === 'SHOWDOWN') {
-      const seccionShowdown = document.createElement('div');
-      renderizarShowdown(seccionShowdown, estado.vista);
-      cuerpo.appendChild(seccionShowdown);
+    if (vista !== null) {
+      if (vista.ultimoShowdownResuelto !== null) {
+        const seccionShowdown = document.createElement('div');
+        renderizarShowdownResuelto(seccionShowdown, vista);
+        cuerpo.appendChild(seccionShowdown);
+      } else if (vista.golpeActual?.ronda === 'SHOWDOWN') {
+        const seccionShowdown = document.createElement('div');
+        renderizarShowdown(seccionShowdown, vista);
+        cuerpo.appendChild(seccionShowdown);
+      }
     }
   } else if (fase === 'FINALIZADA') {
     if (estado.vista !== null) {
-      renderizarResultado(cuerpo, estado.vista);
+      if (estado.vista.ultimoShowdownResuelto !== null) {
+        const seccionShowdown = document.createElement('div');
+        renderizarShowdownResuelto(seccionShowdown, estado.vista);
+        cuerpo.appendChild(seccionShowdown);
+      }
+      const seccionResultado = document.createElement('div');
+      renderizarResultado(seccionResultado, estado.vista, accionesMesa);
+      cuerpo.appendChild(seccionResultado);
     } else {
       cuerpo.innerHTML = `
         <section class="resultado">
@@ -245,6 +284,7 @@ function render(estado: EstadoCliente): void {
 
   raiz!.innerHTML = cabecera;
   raiz!.appendChild(cuerpo);
+  programarTickTemporizador(vista);
 }
 
 store.suscribir(render);

@@ -21,6 +21,7 @@ import {
   MIN_JUGADORES,
   AJUSTES_POR_DEFECTO,
   type AjustesPartida,
+  type Carta,
   type ColorFicha,
   type EstadoGolpe,
   type EstadoPartida,
@@ -102,6 +103,7 @@ function siguienteRonda(ronda: Ronda): Ronda | null {
  */
 export type Accion =
   | { tipo: 'CONFIRMAR'; jugadorId: string }
+  | { tipo: 'AVANZAR_AUTOMATICO' }
   | { tipo: 'RESOLVER_SHOWDOWN' }
   | { tipo: 'TOMAR_FICHA'; jugadorId: string; ficha: Ficha }
   | { tipo: 'INTERCAMBIAR_CENTRO'; jugadorId: string; fichaCentro: Ficha }
@@ -168,6 +170,9 @@ export function iniciarPartida(
     resultado: null,
     semilla,
     ajustes: ajustes ?? AJUSTES_POR_DEFECTO,
+    historialGolpes: [],
+    ultimoResultadoGolpe: null,
+    ultimoShowdownResuelto: null,
   };
 }
 
@@ -223,6 +228,8 @@ export function aplicarAccion(
   switch (accion.tipo) {
     case 'CONFIRMAR':
       return confirmar(estado, golpe, accion.jugadorId);
+    case 'AVANZAR_AUTOMATICO':
+      return avanzarAutomatico(estado, golpe);
     case 'RESOLVER_SHOWDOWN':
       return resolver(estado, golpe);
     case 'TOMAR_FICHA':
@@ -275,7 +282,12 @@ function aplicarFichasConCancelacion(
   const nuevoGolpe: EstadoGolpe = { ...golpe, fichas: resultado.estado, confirmados };
   return {
     ok: true,
-    estado: { ...estado, golpeActual: nuevoGolpe },
+    estado: {
+      ...estado,
+      golpeActual: nuevoGolpe,
+      ultimoResultadoGolpe: null,
+      ultimoShowdownResuelto: null,
+    },
     eventos,
   };
 }
@@ -324,6 +336,22 @@ function confirmar(estado: EstadoPartida, golpe: EstadoGolpe, jugadorId: string)
   // Todos confirmaron → avanzar de ronda automáticamente.
   const golpeConConfirmados: EstadoGolpe = { ...golpe, confirmados };
   return avanzar(estado, golpeConConfirmados);
+}
+
+/**
+ * Avance automático de ronda cuando expira el temporizador: exige que todos
+ * tengan ficha del color activo y avanza sin confirmaciones manuales.
+ */
+function avanzarAutomatico(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
+  if (golpe.ronda === 'SHOWDOWN') {
+    return errorAccion(
+      'ACCION_NO_PERMITIDA',
+      'En el Showdown no hay rondas que avanzar automáticamente.',
+    );
+  }
+
+  const confirmados = estado.jugadores.map((j) => j.id);
+  return avanzar(estado, { ...golpe, confirmados });
 }
 
 /**
@@ -440,11 +468,37 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
     resultado = 'DERROTA';
   }
 
+  const bolsillosRevelados: Record<string, [Carta, Carta]> = {};
+  for (const jugador of estado.jugadores) {
+    if (jugador.bolsillo !== null) {
+      bolsillosRevelados[jugador.id] = jugador.bolsillo;
+    }
+  }
+
+  const ultimoShowdownResuelto = {
+    numero: golpe.numero,
+    exito: showdown.exito,
+    comunitarias: [...golpe.comunitarias],
+    bolsillosRevelados,
+    fichas: golpe.fichas,
+  };
+
   const estadoTrasConteo: EstadoPartida = {
     ...estado,
     bovedasDoradas,
     alarmasRojas,
     resultado,
+    historialGolpes: [
+      ...(estado.historialGolpes ?? []),
+      {
+        numero: golpe.numero,
+        exito: showdown.exito,
+        bovedasTras: bovedasDoradas,
+        alarmasTras: alarmasRojas,
+      },
+    ],
+    ultimoResultadoGolpe: { numero: golpe.numero, exito: showdown.exito },
+    ultimoShowdownResuelto,
   };
 
   // Encadena el siguiente Golpe o finaliza la Partida. iniciarSiguienteGolpe

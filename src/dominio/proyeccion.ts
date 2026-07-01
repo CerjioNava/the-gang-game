@@ -18,11 +18,13 @@
 import {
   type AjustesPartida,
   type Carta,
+  type EntradaHistorialGolpe,
   type ErrorJuego,
   type EstadoFichas,
   type EstadoPartida,
   type FasePartida,
   type Jugador,
+  type ResultadoGolpeReciente,
   type ResultadoPartida,
   type Ronda,
 } from './modelos';
@@ -37,6 +39,12 @@ import {
  * de modo que la vista no puede filtrar información privada.
  */
 export const BOLSILLO_OCULTO = 'OCULTO' as const;
+
+/**
+ * Identificador de perspectiva para clientes conectados al servidor que aún no
+ * se han unido a la Partida. Permite difundir el estado público del Lobby.
+ */
+export const PERSPECTIVA_INVITADO = '__invitado__' as const;
 
 /**
  * Valor del campo `bolsillo` en una vista:
@@ -85,6 +93,8 @@ export interface VistaGolpe {
   fichas: EstadoFichas;
   /** Ids de los jugadores que han confirmado su ficha en la ronda actual. */
   confirmados: string[];
+  /** Marca de tiempo (epoch ms) en que expira el temporizador de avance, o null. */
+  temporizadorFinAt?: number | null;
 }
 
 /**
@@ -120,6 +130,21 @@ export interface VistaPartida {
   espectadores: EspectadorVisible[];
   /** Indica si la perspectiva actual es un espectador (no juega). */
   esEspectador: boolean;
+  /** Golpes resueltos con su resultado. */
+  historialGolpes: EntradaHistorialGolpe[];
+  /** Resultado del último Golpe resuelto (banner). */
+  ultimoResultadoGolpe: ResultadoGolpeReciente | null;
+  /** Showdown recién resuelto con cartas reveladas, o null. */
+  ultimoShowdownResuelto: VistaShowdownResuelto | null;
+}
+
+/** Vista del Showdown ya resuelto (persiste hasta movimiento de fichas). */
+export interface VistaShowdownResuelto {
+  numero: number;
+  exito: boolean;
+  comunitarias: Carta[];
+  fichas: EstadoFichas;
+  jugadores: JugadorVisible[];
 }
 
 // ===========================================================================
@@ -194,6 +219,40 @@ function proyectarJugador(
   };
 }
 
+function proyectarShowdownResuelto(
+  estado: EstadoPartida,
+): VistaShowdownResuelto | null {
+  const snap = estado.ultimoShowdownResuelto ?? null;
+  if (snap === null) {
+    return null;
+  }
+  const jugadores: JugadorVisible[] = estado.jugadores.map((jugador) => ({
+    id: jugador.id,
+    nombre: jugador.nombre,
+    ...(jugador.descripcion !== undefined ? { descripcion: jugador.descripcion } : {}),
+    bolsillo: snap.bolsillosRevelados[jugador.id] ?? null,
+    conectado: true,
+  }));
+  return {
+    numero: snap.numero,
+    exito: snap.exito,
+    comunitarias: [...snap.comunitarias],
+    fichas: snap.fichas,
+    jugadores,
+  };
+}
+
+/**
+ * Proyecta la vista pública del Lobby para un cliente que aún no se ha unido.
+ * Incluye la lista de miembros y espectadores sin información privada.
+ */
+export function proyectarVistaInvitado(
+  estado: EstadoPartida,
+  temporizadorFinAt: number | null = null,
+): VistaPartida {
+  return proyectarEstadoPara(estado, PERSPECTIVA_INVITADO, temporizadorFinAt);
+}
+
 /**
  * Proyecta el `EstadoPartida` autoritativo a la VISTA personalizada de un
  * Jugador.
@@ -216,6 +275,7 @@ function proyectarJugador(
 export function proyectarEstadoPara(
   estado: EstadoPartida,
   jugadorId: string,
+  temporizadorFinAt: number | null = null,
 ): VistaPartida {
   const revelarTodos = bolsillosRevelados(estado);
   const listaEspectadores = estado.espectadores ?? [];
@@ -241,6 +301,7 @@ export function proyectarEstadoPara(
           comunitarias: [...estado.golpeActual.comunitarias],
           fichas: estado.golpeActual.fichas,
           confirmados: [...estado.golpeActual.confirmados],
+          temporizadorFinAt,
         };
 
   return {
@@ -254,6 +315,9 @@ export function proyectarEstadoPara(
     bovedasDoradas: estado.bovedasDoradas,
     alarmasRojas: estado.alarmasRojas,
     resultado: estado.resultado,
+    historialGolpes: [...(estado.historialGolpes ?? [])],
+    ultimoResultadoGolpe: estado.ultimoResultadoGolpe ?? null,
+    ultimoShowdownResuelto: proyectarShowdownResuelto(estado),
     ...(estado.ajustes !== undefined ? { ajustes: estado.ajustes } : {}),
   };
 }
@@ -283,6 +347,16 @@ export function aplicarEstadoConexion(
       ...espectador,
       conectado: conexionPorJugador.get(espectador.id) ?? espectador.conectado,
     })),
+    ultimoShowdownResuelto:
+      vista.ultimoShowdownResuelto === null
+        ? null
+        : {
+            ...vista.ultimoShowdownResuelto,
+            jugadores: vista.ultimoShowdownResuelto.jugadores.map((jugador) => ({
+              ...jugador,
+              conectado: conexionPorJugador.get(jugador.id) ?? jugador.conectado,
+            })),
+          },
   };
 }
 

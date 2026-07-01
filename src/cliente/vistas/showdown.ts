@@ -16,7 +16,7 @@
 // _Requirements: 8.2, 9.3_
 
 import { evaluar, type ManoEvaluada } from '../../dominio';
-import { BOLSILLO_OCULTO, type VistaGolpe } from '../../dominio/proyeccion';
+import { BOLSILLO_OCULTO, type VistaGolpe, type VistaShowdownResuelto } from '../../dominio/proyeccion';
 import type { Carta, JugadorVisible, Palo, VistaPartida } from '../protocolo';
 import { estatusJugadorHtml } from './estatusJugador';
 import { nombreConTooltipHtml } from './tooltipNombre';
@@ -148,6 +148,58 @@ export function renderizarShowdown(
     </section>`;
 }
 
+/**
+ * Renderiza el Showdown ya resuelto con el resultado del Golpe (bóveda o alarma).
+ * Persiste hasta que alguien mueve fichas en el siguiente Golpe.
+ */
+export function renderizarShowdownResuelto(
+  contenedor: HTMLElement,
+  vista: VistaPartida,
+): void {
+  const resuelto = vista.ultimoShowdownResuelto;
+  if (resuelto === null) {
+    contenedor.innerHTML = '';
+    return;
+  }
+
+  const golpeVista: VistaGolpe = {
+    numero: resuelto.numero,
+    ronda: 'SHOWDOWN',
+    comunitarias: resuelto.comunitarias,
+    fichas: resuelto.fichas,
+    confirmados: [],
+  };
+
+  const vistaOrden: VistaPartida = {
+    ...vista,
+    jugadores: resuelto.jugadores,
+  };
+
+  const orden = ordenarPorFichaRoja(vistaOrden, golpeVista);
+  const filas = orden
+    .map((posicion) => filaShowdownHtml(posicion, golpeVista))
+    .join('');
+
+  const bannerExito = resuelto.exito
+    ? `<div class="showdown__resultado showdown__resultado--exito" role="status">
+        <strong>¡Bóveda abierta!</strong> El Golpe ${resuelto.numero} fue un éxito para la banda.
+      </div>`
+    : `<div class="showdown__resultado showdown__resultado--fracaso" role="status">
+        <strong>¡Alarma activada!</strong> El Golpe ${resuelto.numero} fracasó.
+      </div>`;
+
+  contenedor.innerHTML = `
+    <section class="bloque showdown showdown--resuelto">
+      <h3>Golpe ${resuelto.numero} · resultado del showdown</h3>
+      ${bannerExito}
+      <p class="showdown__ayuda">
+        Manos reveladas en orden ascendente de Ficha roja. El resultado permanece
+        visible hasta que alguien mueva fichas en el siguiente golpe.
+      </p>
+      <ol class="showdown__lista">${filas}</ol>
+    </section>`;
+}
+
 /** Renderiza la fila de un Jugador en el revelado del Showdown. */
 function filaShowdownHtml(
   posicion: PosicionShowdown,
@@ -200,6 +252,11 @@ function categoriaManoHtml(jugador: JugadorVisible, golpe: VistaGolpe): string {
 // Render del RESULTADO FINAL (fase FINALIZADA)
 // ===========================================================================
 
+/** Acciones opcionales en la pantalla de resultado final. */
+export interface AccionesResultado {
+  terminarPartida(): void;
+}
+
 /**
  * Renderiza la pantalla de resultado final temática (criterio 9.3): VICTORIA o
  * DERROTA del equipo, con el marcador de Bóvedas doradas y Alarmas rojas.
@@ -207,6 +264,7 @@ function categoriaManoHtml(jugador: JugadorVisible, golpe: VistaGolpe): string {
 export function renderizarResultado(
   contenedor: HTMLElement,
   vista: VistaPartida,
+  acciones?: AccionesResultado,
 ): void {
   const esVictoria = vista.resultado === 'VICTORIA';
   const esDerrota = vista.resultado === 'DERROTA';
@@ -230,6 +288,18 @@ export function renderizarResultado(
     claseEstado = '';
   }
 
+  const yoId = vista.perspectivaJugadorId;
+  const botonTerminar =
+    acciones !== undefined &&
+    !vista.esEspectador &&
+    vista.anfitrionId === yoId
+      ? `<div class="resultado__acciones">
+          <button type="button" id="boton-terminar-partida" class="boton boton--alias">
+            Terminar partida
+          </button>
+        </div>`
+      : '';
+
   contenedor.innerHTML = `
     <section class="resultado ${claseEstado}">
       <h2 class="resultado__titulo">${titulo}</h2>
@@ -244,5 +314,10 @@ export function renderizarResultado(
           <span class="resultado__valor resultado__valor--alarma">${vista.alarmasRojas} / 3</span>
         </div>
       </div>
+      ${botonTerminar}
     </section>`;
+
+  contenedor
+    .querySelector<HTMLButtonElement>('#boton-terminar-partida')
+    ?.addEventListener('click', () => acciones?.terminarPartida());
 }

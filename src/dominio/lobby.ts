@@ -7,10 +7,12 @@
 // _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
 import {
+  AJUSTES_POR_DEFECTO,
   MAX_JUGADORES,
   MIN_JUGADORES,
   type ErrorJuego,
   type Espectador,
+  type EstadoPartida,
   type Jugador,
 } from './modelos';
 
@@ -320,4 +322,26 @@ export function puedeIniciarCompleto(
   conexionPorJugador: ReadonlyMap<string, boolean>,
 ): boolean {
   return puedeIniciar(jugadores) && todosConectados(jugadores, conexionPorJugador);
+}
+
+/**
+ * Devuelve la Partida al Lobby conservando jugadores, espectadores y ajustes.
+ * Limpia el Golpe en curso, marcadores e historial para poder iniciar de nuevo.
+ */
+export function volverAlLobby(estado: EstadoPartida): EstadoPartida {
+  return {
+    fase: 'LOBBY',
+    jugadores: estado.jugadores.map((j) => ({ ...j, bolsillo: null })),
+    espectadores: estado.espectadores ?? [],
+    golpeActual: null,
+    golpesJugados: 0,
+    bovedasDoradas: 0,
+    alarmasRojas: 0,
+    resultado: null,
+    semilla: 0,
+    ajustes: estado.ajustes ?? AJUSTES_POR_DEFECTO,
+    historialGolpes: [],
+    ultimoResultadoGolpe: null,
+    ultimoShowdownResuelto: null,
+  };
 }

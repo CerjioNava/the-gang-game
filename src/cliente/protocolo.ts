@@ -34,6 +34,7 @@ export const TipoMensajeCliente = {
   CONFIGURAR_AJUSTES: 'CONFIGURAR_AJUSTES',
   AVANZAR: 'AVANZAR',
   RESOLVER_SHOWDOWN: 'RESOLVER_SHOWDOWN',
+  TERMINAR_PARTIDA: 'TERMINAR_PARTIDA',
   TOMAR_FICHA: 'TOMAR_FICHA',
   INTERCAMBIAR_CENTRO: 'INTERCAMBIAR_CENTRO',
   INTERCAMBIAR_JUGADOR: 'INTERCAMBIAR_JUGADOR',
@@ -82,6 +83,9 @@ export const mensajes = {
   },
   resolverShowdown(): MensajeCliente {
     return { tipo: TipoMensajeCliente.RESOLVER_SHOWDOWN };
+  },
+  terminarPartida(): MensajeCliente {
+    return { tipo: TipoMensajeCliente.TERMINAR_PARTIDA };
   },
   tomarFicha(ficha: Ficha): MensajeCliente {
     return { tipo: TipoMensajeCliente.TOMAR_FICHA, payload: { ficha } };

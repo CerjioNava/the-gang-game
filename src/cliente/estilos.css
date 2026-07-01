@@ -916,6 +916,81 @@ body {
   font-size: 0.85rem;
 }
 
+.mesa__admin {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.mesa__resultado-golpe {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #2a5a2a;
+  background: rgba(40, 90, 40, 0.25);
+  color: #b8e6b8;
+}
+
+.mesa__resultado-golpe--fracaso {
+  border-color: #6a2a2a;
+  background: rgba(90, 30, 30, 0.25);
+  color: #f0b8b8;
+}
+
+.mesa__temporizador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-borde);
+  background: rgba(255, 200, 80, 0.08);
+}
+
+.mesa__temporizador-etiqueta {
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}
+
+.mesa__temporizador-valor {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #ffc850;
+}
+
+.mesa__temporizador-ayuda {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.8rem;
+}
+
+.historial-golpes {
+  margin-bottom: 0.75rem;
+}
+
+.historial-golpes__titulo {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.historial-golpes__lista {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}
+
+.historial-golpe--exito {
+  color: #b8e6b8;
+}
+
+.historial-golpe--fracaso {
+  color: #f0b8b8;
+}
+
 /* =========================================================================
    Showdown: revelado de manos en orden de Ficha roja (criterio 8.2)
    ========================================================================= */
@@ -970,6 +1045,33 @@ body {
 
 .showdown__categoria strong {
   color: var(--oro-fuerte);
+}
+
+.showdown__resultado {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 1.05rem;
+}
+
+.showdown__resultado--exito {
+  border: 1px solid #2a5a2a;
+  background: rgba(40, 90, 40, 0.3);
+  color: #b8e6b8;
+}
+
+.showdown__resultado--fracaso {
+  border: 1px solid #6a2a2a;
+  background: rgba(90, 30, 30, 0.3);
+  color: #f0b8b8;
+}
+
+.showdown--resuelto {
+  border-color: var(--panel-borde);
+}
+
+.resultado__acciones {
+  margin-top: 1.25rem;
 }
 
 /* =========================================================================

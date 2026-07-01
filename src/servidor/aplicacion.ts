@@ -41,6 +41,8 @@
 
 import { crearCoordinador, MensajeCliente, MensajeServidor } from './coordinador';
 import type { Coordinador, ContextoCoordinador, ResultadoCoordinador } from './coordinador';
+import { colorDeRonda, todosTienenFichaDelColor } from '../dominio';
+import { TEMPORIZADOR_RONDA_MS, type EventoJuego } from '../dominio/modelos';
 import { crearDifusor } from './difusor';
 import type { Difusor } from './difusor';
 import { crearGestorSesiones } from './sesiones';
@@ -93,6 +95,68 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
   const conexiones = new Map<string, ConexionCliente>();
   const difusor = crearDifusor(conexiones, gestor, coordinador);
 
+  let temporizadorTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function cancelarTemporizador(): void {
+    if (temporizadorTimeout !== null) {
+      clearTimeout(temporizadorTimeout);
+      temporizadorTimeout = null;
+    }
+    coordinador.fijarTemporizadorFinAt(null);
+  }
+
+  function debeProgramarTemporizador(): boolean {
+    const estado = coordinador.obtenerEstado();
+    if (estado.fase !== 'EN_CURSO' || estado.golpeActual === null) {
+      return false;
+    }
+    if (estado.golpeActual.ronda === 'SHOWDOWN') {
+      return false;
+    }
+    const colorActivo = colorDeRonda(estado.golpeActual.ronda);
+    const jugadorIds = estado.jugadores.map((j) => j.id);
+    return todosTienenFichaDelColor(estado.golpeActual.fichas, colorActivo, jugadorIds);
+  }
+
+  function programarTemporizador(): void {
+    cancelarTemporizador();
+    if (!debeProgramarTemporizador()) {
+      return;
+    }
+
+    const finAt = Date.now() + TEMPORIZADOR_RONDA_MS;
+    coordinador.fijarTemporizadorFinAt(finAt);
+    difusor.difundir();
+
+    temporizadorTimeout = setTimeout(() => {
+      temporizadorTimeout = null;
+      coordinador.fijarTemporizadorFinAt(null);
+      const resultado = coordinador.avanzarAutomatico();
+      aplicarResultado(resultado, null);
+    }, TEMPORIZADOR_RONDA_MS);
+  }
+
+  function gestionarTemporizadorTrasDifusion(eventos: EventoJuego[]): void {
+    const huboAvance = eventos.some((e) => e.tipo === 'RONDA_AVANZADA');
+    const huboShowdown = eventos.some((e) => e.tipo === 'SHOWDOWN_RESUELTO');
+    const huboMovimientoFicha = eventos.some(
+      (e) => e.tipo === 'FICHA_TOMADA' || e.tipo === 'FICHA_INTERCAMBIADA',
+    );
+
+    if (huboAvance || huboShowdown) {
+      cancelarTemporizador();
+      programarTemporizador();
+      return;
+    }
+
+    if (huboMovimientoFicha) {
+      programarTemporizador();
+      return;
+    }
+
+    programarTemporizador();
+  }
+
   /**
    * Sincroniza la Partida del gestor con el estado autoritativo del
    * coordinador. El gestor necesita conocer la fase de la Partida para decidir,
@@ -103,7 +167,9 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
   function sincronizarPartida(): void {
     const estado = coordinador.obtenerEstado();
     if (estado.fase === 'LOBBY') {
-      // Aún no hay Partida que registrar; el difusor usa gestor.sesiones().
+      if (gestor.obtenerPartida() !== null) {
+        gestor.actualizarPartida(estado);
+      }
       return;
     }
     if (gestor.obtenerPartida() === null) {
@@ -151,20 +217,23 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
    */
   function aplicarResultado(
     resultado: ResultadoCoordinador,
-    conexion: ConexionCliente,
+    conexion: ConexionCliente | null,
   ): void {
     switch (resultado.clase) {
       case 'DIFUNDIR':
         retirarSesionesIndicadas(resultado);
         sincronizarPartida();
         difusor.difundir();
+        gestionarTemporizadorTrasDifusion(resultado.eventos);
         break;
       case 'PRIVADO':
-        conexion.enviar(resultado.mensaje);
+        conexion?.enviar(resultado.mensaje);
         break;
       case 'ERROR':
       case 'IGNORADO':
-        enviarError(conexion, resultado.error.mensaje, resultado.error.codigo);
+        if (conexion !== null) {
+          enviarError(conexion, resultado.error.mensaje, resultado.error.codigo);
+        }
         break;
     }
   }
@@ -201,6 +270,7 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
     if (conexionResultado.esReconexion) {
       // Reincorporación (Lobby o Partida en curso): el estado ya está
       // preservado; basta con reenviarle (y a todos) la vista actual.
+      programarTemporizador();
       difusor.difundir();
       return;
     }
@@ -224,6 +294,7 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
       // Registramos la conexión; la identidad del Jugador se establece cuando
       // llegue su mensaje UNIRSE.
       conexiones.set(conexion.id, conexion);
+      difusor.enviarVistaInvitado(conexion);
     },
 
     alRecibirMensaje(conexion: ConexionCliente, mensaje: MensajeEntrante): void {
@@ -265,8 +336,10 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
 
       gestor.desconectar(conexion.id);
 
+      cancelarTemporizador();
       // Difundimos el nuevo estado (p. ej. miembro desconectado en Lobby o Partida).
       difusor.difundir();
+      programarTemporizador();
     },
   };
 

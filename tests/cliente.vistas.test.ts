@@ -42,6 +42,7 @@ const ACCIONES_INERTES: AccionesMesa = {
   intercambiarJugador() {},
   avanzar() {},
   resolverShowdown() {},
+  terminarPartida() {},
 };
 
 function carta(valor: number, palo: Carta['palo']): Carta {
@@ -98,6 +99,9 @@ function vistaEnCurso(): VistaPartida {
     resultado: null,
     espectadores: [],
     esEspectador: false,
+    historialGolpes: [],
+    ultimoResultadoGolpe: null,
+    ultimoShowdownResuelto: null,
   };
 }
 

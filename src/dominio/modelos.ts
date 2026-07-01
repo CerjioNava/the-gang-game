@@ -119,6 +119,36 @@ export type Semilla = number | string;
 /** Resultado final de la Partida. */
 export type ResultadoPartida = 'VICTORIA' | 'DERROTA';
 
+/** Resumen de un Golpe ya resuelto (historial). */
+export interface EntradaHistorialGolpe {
+  /** Número del Golpe (1..5). */
+  numero: number;
+  /** True si el Golpe abrió una bóveda; false si activó una alarma. */
+  exito: boolean;
+  /** Bóvedas doradas acumuladas tras resolver este Golpe. */
+  bovedasTras: number;
+  /** Alarmas rojas acumuladas tras resolver este Golpe. */
+  alarmasTras: number;
+}
+
+/** Resultado del último Golpe resuelto, visible hasta el siguiente movimiento de fichas. */
+export interface ResultadoGolpeReciente {
+  numero: number;
+  exito: boolean;
+}
+
+/** Snapshot del Showdown recién resuelto (cartas reveladas + resultado). */
+export interface SnapshotShowdownResuelto {
+  numero: number;
+  exito: boolean;
+  comunitarias: Carta[];
+  bolsillosRevelados: Record<string, [Carta, Carta]>;
+  fichas: EstadoFichas;
+}
+
+/** Duración del temporizador de avance automático de ronda (ms). */
+export const TEMPORIZADOR_RONDA_MS = 10_000;
+
 // ===========================================================================
 // Ajustes de la Partida
 // ===========================================================================
@@ -204,6 +234,12 @@ export interface EstadoPartida {
   semilla: Semilla;
   /** Ajustes del modo de juego (opciones configuradas en el Lobby). */
   ajustes?: AjustesPartida;
+  /** Golpes ya resueltos con su resultado (historial). */
+  historialGolpes?: EntradaHistorialGolpe[];
+  /** Resultado del último Golpe resuelto (banner en la UI). */
+  ultimoResultadoGolpe?: ResultadoGolpeReciente | null;
+  /** Showdown recién resuelto, visible hasta el siguiente movimiento de fichas. */
+  ultimoShowdownResuelto?: SnapshotShowdownResuelto | null;
 }
 
 // ===========================================================================

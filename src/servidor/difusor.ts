@@ -132,6 +132,7 @@ export class Difusor {
         enviados += 1;
       }
     }
+    enviados += this.#difundirLobbyInvitados(conexionPorJugador);
     return enviados;
   }
 
@@ -145,6 +146,58 @@ export class Difusor {
    */
   difundir(): number {
     return this.difundirEstado();
+  }
+
+  /**
+   * Envía la vista pública del Lobby a una conexión sin sesión (invitado).
+   * @returns `true` si se envió la vista; `false` si no aplica o falló el envío.
+   */
+  enviarVistaInvitado(conexion: ConexionCliente): boolean {
+    if (this.#coordinador.obtenerEstado().fase !== 'LOBBY') {
+      return false;
+    }
+    const conexionPorJugador = new Map(
+      this.#gestor.sesiones().map((sesion) => [sesion.sessionId, sesion.conectado]),
+    );
+    const vistaBase = this.#coordinador.obtenerVistaInvitado();
+    const vista = aplicarEstadoConexion(vistaBase, conexionPorJugador);
+    return this.#enviarSeguro(conexion, {
+      tipo: TIPO_MENSAJE_ESTADO,
+      payload: vista,
+    });
+  }
+
+  #idsConexionConSesion(): Set<string> {
+    const ids = new Set<string>();
+    for (const sesion of this.#gestor.sesiones()) {
+      if (sesion.conectado && sesion.conexionId !== null) {
+        ids.add(sesion.conexionId);
+      }
+    }
+    return ids;
+  }
+
+  #difundirLobbyInvitados(conexionPorJugador: ReadonlyMap<string, boolean>): number {
+    if (this.#coordinador.obtenerEstado().fase !== 'LOBBY') {
+      return 0;
+    }
+    const vistaBase = this.#coordinador.obtenerVistaInvitado();
+    const vista = aplicarEstadoConexion(vistaBase, conexionPorJugador);
+    const mensaje: MensajeSaliente = {
+      tipo: TIPO_MENSAJE_ESTADO,
+      payload: vista,
+    };
+    const conSesion = this.#idsConexionConSesion();
+    let enviados = 0;
+    for (const [conexionId, conexion] of this.#conexiones) {
+      if (conSesion.has(conexionId)) {
+        continue;
+      }
+      if (this.#enviarSeguro(conexion, mensaje)) {
+        enviados += 1;
+      }
+    }
+    return enviados;
   }
 
   /**

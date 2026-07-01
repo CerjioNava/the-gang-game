@@ -43,9 +43,11 @@ import {
   registrarEspectador,
   registrarJugador,
   validarInicioConConectividad,
+  volverAlLobby,
 } from '../dominio/lobby';
 import {
   proyectarEstadoPara,
+  proyectarVistaInvitado,
   solicitarCartasDe,
   type VistaPartida,
 } from '../dominio/proyeccion';
@@ -85,6 +87,8 @@ export const MensajeCliente = {
   AVANZAR: 'AVANZAR',
   /** Resolver el Showdown del Golpe. payload: ninguno. */
   RESOLVER_SHOWDOWN: 'RESOLVER_SHOWDOWN',
+  /** Terminar la Partida y volver al Lobby (solo anfitrión). payload: ninguno. */
+  TERMINAR_PARTIDA: 'TERMINAR_PARTIDA',
   /** Tomar una Ficha del centro. payload: `{ ficha: Ficha }`. */
   TOMAR_FICHA: 'TOMAR_FICHA',
   /** Intercambiar la Ficha propia por una del centro. payload: `{ fichaCentro: Ficha }`. */
@@ -197,6 +201,8 @@ export class Coordinador {
   readonly #generarSemilla: () => Semilla;
   /** Ajustes del modo de juego configurados en el Lobby. */
   #ajustes: AjustesPartida;
+  /** Marca de tiempo (epoch ms) de fin del temporizador de avance de ronda. */
+  #temporizadorFinAt: number | null = null;
   /** Id del Jugador anfitrión (el primero en unirse al Lobby). */
   #anfitrionId: string | null = null;
 
@@ -211,6 +217,16 @@ export class Coordinador {
     return this.#anfitrionId;
   }
 
+  /** Fija o limpia el temporizador de avance de ronda proyectado a los clientes. */
+  fijarTemporizadorFinAt(finAt: number | null): void {
+    this.#temporizadorFinAt = finAt;
+  }
+
+  /** Avance automático de ronda (temporizador expirado). */
+  avanzarAutomatico(): ResultadoCoordinador {
+    return this.#aplicar({ tipo: 'AVANZAR_AUTOMATICO' });
+  }
+
   /** Construye el estado inicial en fase LOBBY, sin Jugadores ni Golpe. */
   static #estadoLobbyInicial(): EstadoPartida {
     return {
@@ -223,6 +239,8 @@ export class Coordinador {
       alarmasRojas: 0,
       resultado: null,
       semilla: 0,
+      historialGolpes: [],
+      ultimoResultadoGolpe: null,
     };
   }
 
@@ -240,7 +258,15 @@ export class Coordinador {
    * usa para enviar a cada cliente su propia vista.
    */
   obtenerVistaPara(jugadorId: string): VistaPartida {
-    const vista = proyectarEstadoPara(this.#estado, jugadorId);
+    const vista = proyectarEstadoPara(this.#estado, jugadorId, this.#temporizadorFinAt);
+    return { ...vista, anfitrionId: this.#anfitrionId ?? undefined };
+  }
+
+  /**
+   * Vista pública del Lobby para clientes conectados que aún no se han unido.
+   */
+  obtenerVistaInvitado(): VistaPartida {
+    const vista = proyectarVistaInvitado(this.#estado, this.#temporizadorFinAt);
     return { ...vista, anfitrionId: this.#anfitrionId ?? undefined };
   }
 
@@ -307,6 +333,13 @@ export class Coordinador {
           return rechazoShowdown;
         }
         return this.#aplicar({ tipo: 'RESOLVER_SHOWDOWN' });
+      }
+      case MensajeCliente.TERMINAR_PARTIDA: {
+        const rechazoTerminar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoTerminar !== null) {
+          return rechazoTerminar;
+        }
+        return this.#terminarPartida(jugadorId);
       }
       case MensajeCliente.TOMAR_FICHA: {
         const rechazoTomar = this.#rechazarSiEspectador(jugadorId);
@@ -610,6 +643,32 @@ export class Coordinador {
         { tipo: 'GOLPE_INICIADO', numero: 1 },
       ],
     };
+  }
+
+  #terminarPartida(solicitanteId: string): ResultadoCoordinador {
+    if (this.#anfitrionId !== solicitanteId) {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'Solo el anfitrión puede terminar la Partida y volver al Lobby.',
+        },
+      };
+    }
+
+    if (this.#estado.fase !== 'EN_CURSO' && this.#estado.fase !== 'FINALIZADA') {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'No hay una Partida en curso que terminar.',
+        },
+      };
+    }
+
+    this.#temporizadorFinAt = null;
+    this.#estado = volverAlLobby(this.#estado);
+    return { clase: 'DIFUNDIR', eventos: [] };
   }
 
   // -------------------------------------------------------------------------
