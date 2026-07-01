@@ -28,6 +28,7 @@ import {
   type ResultadoPartida,
   type Ronda,
 } from './modelos';
+import { ordenJugadoresShowdown } from './showdown';
 
 // ===========================================================================
 // Tipos de vista
@@ -93,6 +94,10 @@ export interface VistaGolpe {
   fichas: EstadoFichas;
   /** Ids de los jugadores que han confirmado su ficha en la ronda actual. */
   confirmados: string[];
+  /** Cuántos jugadores del orden de showdown ya revelaron mano (0..N). */
+  reveladoShowdown: number;
+  /** Orden de revelado: ids ascendente por Ficha roja. */
+  ordenShowdown: string[];
   /** Marca de tiempo (epoch ms) en que expira el temporizador de avance, o null. */
   temporizadorFinAt?: number | null;
 }
@@ -161,17 +166,25 @@ export type ResultadoSolicitudCartas =
 // ===========================================================================
 
 /**
- * Indica si las Cartas de Bolsillo de TODOS los Jugadores deben estar reveladas.
- *
- * Conforme a los criterios 4.2, 4.6 y 10.3, los bolsillos solo se revelan a
- * todos en el Showdown del Golpe en curso. Mientras el Golpe no haya llegado al
- * Showdown (incluido el LOBBY, sin Golpe), permanecen ocultos para terceros.
- *
- * @param estado Estado autoritativo de la Partida.
- * @returns `true` si el Golpe en curso está en SHOWDOWN.
+ * Indica si las Cartas de Bolsillo de TODOS los Jugadores están reveladas en el
+ * Showdown progresivo (todas las manos del orden ya fueron mostradas).
  */
 export function bolsillosRevelados(estado: EstadoPartida): boolean {
-  return estado.golpeActual !== null && estado.golpeActual.ronda === 'SHOWDOWN';
+  const golpe = estado.golpeActual;
+  if (golpe === null || golpe.ronda !== 'SHOWDOWN') {
+    return false;
+  }
+  return golpe.reveladoShowdown >= estado.jugadores.length;
+}
+
+/** Ids de jugadores cuyo bolsillo ya fue revelado en el Showdown en curso. */
+function idsBolsillosRevelados(estado: EstadoPartida): ReadonlySet<string> {
+  const golpe = estado.golpeActual;
+  if (golpe === null || golpe.ronda !== 'SHOWDOWN' || golpe.reveladoShowdown === 0) {
+    return new Set();
+  }
+  const orden = ordenJugadoresShowdown(estado.jugadores, golpe.fichas);
+  return new Set(orden.slice(0, golpe.reveladoShowdown));
 }
 
 // ===========================================================================
@@ -190,13 +203,13 @@ function copiarBolsillo(bolsillo: [Carta, Carta]): [Carta, Carta] {
  * Proyecta un Jugador a su forma visible desde la perspectiva de `jugadorId`.
  *
  * El propio Jugador siempre ve sus Cartas de Bolsillo. Las de los demás se
- * revelan únicamente cuando `revelarTodos` es true (Showdown); en caso contrario
- * se sustituyen por {@link BOLSILLO_OCULTO} y nunca aparecen sus valores.
+ * revelan cuando su id está en el conjunto de bolsillos ya revelados en el
+ * Showdown progresivo; en caso contrario se sustituyen por {@link BOLSILLO_OCULTO}.
  */
 function proyectarJugador(
   jugador: Jugador,
   perspectivaJugadorId: string,
-  revelarTodos: boolean,
+  idsRevelados: ReadonlySet<string>,
 ): JugadorVisible {
   const esPropio = jugador.id === perspectivaJugadorId;
   let bolsillo: BolsilloVisible;
@@ -204,7 +217,7 @@ function proyectarJugador(
   if (jugador.bolsillo === null) {
     // Aún no se han repartido cartas: no hay nada que ocultar ni revelar.
     bolsillo = null;
-  } else if (esPropio || revelarTodos) {
+  } else if (esPropio || idsRevelados.has(jugador.id)) {
     bolsillo = copiarBolsillo(jugador.bolsillo);
   } else {
     bolsillo = BOLSILLO_OCULTO;
@@ -277,12 +290,12 @@ export function proyectarEstadoPara(
   jugadorId: string,
   temporizadorFinAt: number | null = null,
 ): VistaPartida {
-  const revelarTodos = bolsillosRevelados(estado);
+  const idsRevelados = idsBolsillosRevelados(estado);
   const listaEspectadores = estado.espectadores ?? [];
   const esEspectador = listaEspectadores.some((e) => e.id === jugadorId);
 
   const jugadores = estado.jugadores.map((jugador) =>
-    proyectarJugador(jugador, jugadorId, revelarTodos),
+    proyectarJugador(jugador, jugadorId, idsRevelados),
   );
 
   const espectadores: EspectadorVisible[] = listaEspectadores.map((e) => ({
@@ -301,6 +314,11 @@ export function proyectarEstadoPara(
           comunitarias: [...estado.golpeActual.comunitarias],
           fichas: estado.golpeActual.fichas,
           confirmados: [...estado.golpeActual.confirmados],
+          reveladoShowdown: estado.golpeActual.reveladoShowdown,
+          ordenShowdown:
+            estado.golpeActual.ronda === 'SHOWDOWN'
+              ? ordenJugadoresShowdown(estado.jugadores, estado.golpeActual.fichas)
+              : [],
           temporizadorFinAt,
         };
 
@@ -387,11 +405,9 @@ export function solicitarCartasDe(
   objetivoId: string,
 ): ResultadoSolicitudCartas {
   const esPropio = solicitanteId === objetivoId;
-  const revelarTodos = bolsillosRevelados(estado);
+  const idsRevelados = idsBolsillosRevelados(estado);
 
-  // Antes del Showdown no se pueden consultar las cartas ajenas: se rechaza sin
-  // revelar ningún valor (criterios 4.7, 10.4).
-  if (!esPropio && !revelarTodos) {
+  if (!esPropio && !idsRevelados.has(objetivoId)) {
     return {
       ok: false,
       error: {

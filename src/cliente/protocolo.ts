@@ -34,6 +34,7 @@ export const TipoMensajeCliente = {
   CONFIGURAR_AJUSTES: 'CONFIGURAR_AJUSTES',
   AVANZAR: 'AVANZAR',
   RESOLVER_SHOWDOWN: 'RESOLVER_SHOWDOWN',
+  REVELAR_SHOWDOWN: 'REVELAR_SHOWDOWN',
   TERMINAR_PARTIDA: 'TERMINAR_PARTIDA',
   TOMAR_FICHA: 'TOMAR_FICHA',
   INTERCAMBIAR_CENTRO: 'INTERCAMBIAR_CENTRO',
@@ -80,6 +81,9 @@ export const mensajes = {
   },
   avanzar(): MensajeCliente {
     return { tipo: TipoMensajeCliente.AVANZAR };
+  },
+  revelarShowdown(): MensajeCliente {
+    return { tipo: TipoMensajeCliente.REVELAR_SHOWDOWN };
   },
   resolverShowdown(): MensajeCliente {
     return { tipo: TipoMensajeCliente.RESOLVER_SHOWDOWN };

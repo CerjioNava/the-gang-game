@@ -65,6 +65,14 @@ describe('Property 3: Revelado de bolsillos en el Showdown', () => {
         // El Golpe está ahora en SHOWDOWN.
         expect(estado.golpeActual!.ronda).toBe('SHOWDOWN');
 
+        // Revelar progresivamente todas las manos del orden de showdown.
+        while (estado.golpeActual!.reveladoShowdown < n) {
+          const revelacion = aplicarAccion(estado, { tipo: 'REVELAR_SHOWDOWN' });
+          expect(revelacion.ok).toBe(true);
+          if (!revelacion.ok) return;
+          estado = revelacion.estado;
+        }
+
         // Para cada Jugador observador, la vista debe contener las Cartas de
         // Bolsillo (las dos cartas reales, no OCULTO) de TODOS los Jugadores.
         for (const observador of estado.jugadores) {

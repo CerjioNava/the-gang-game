@@ -34,7 +34,7 @@ import {
   type Semilla,
 } from './modelos';
 import { crearBarajaBarajada, repartirBolsillos, revelarComunitariasPorRonda } from './reparto';
-import { resolverShowdown } from './showdown';
+import { resolverShowdown, ordenJugadoresShowdown } from './showdown';
 import {
   intercambiarConCentro,
   intercambiarConJugador,
@@ -104,6 +104,7 @@ function siguienteRonda(ronda: Ronda): Ronda | null {
 export type Accion =
   | { tipo: 'CONFIRMAR'; jugadorId: string }
   | { tipo: 'AVANZAR_AUTOMATICO' }
+  | { tipo: 'REVELAR_SHOWDOWN' }
   | { tipo: 'RESOLVER_SHOWDOWN' }
   | { tipo: 'TOMAR_FICHA'; jugadorId: string; ficha: Ficha }
   | { tipo: 'INTERCAMBIAR_CENTRO'; jugadorId: string; fichaCentro: Ficha }
@@ -158,6 +159,7 @@ export function iniciarPartida(
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
     confirmados: [],
+    reveladoShowdown: 0,
   };
 
   return {
@@ -230,6 +232,8 @@ export function aplicarAccion(
       return confirmar(estado, golpe, accion.jugadorId);
     case 'AVANZAR_AUTOMATICO':
       return avanzarAutomatico(estado, golpe);
+    case 'REVELAR_SHOWDOWN':
+      return revelarShowdown(estado, golpe);
     case 'RESOLVER_SHOWDOWN':
       return resolver(estado, golpe);
     case 'TOMAR_FICHA':
@@ -382,7 +386,12 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   }
 
   if (proxima === 'SHOWDOWN') {
-    const nuevoGolpe: EstadoGolpe = { ...golpe, ronda: 'SHOWDOWN', confirmados: [] };
+    const nuevoGolpe: EstadoGolpe = {
+      ...golpe,
+      ronda: 'SHOWDOWN',
+      confirmados: [],
+      reveladoShowdown: 0,
+    };
     return {
       ok: true,
       estado: { ...estado, golpeActual: nuevoGolpe },
@@ -404,12 +413,46 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
     baraja: revelado.resto,
     fichas: { ...golpe.fichas, colorActivo: nuevoColor },
     confirmados: [],
+    reveladoShowdown: 0,
   };
 
   return {
     ok: true,
     estado: { ...estado, golpeActual: nuevoGolpe },
     eventos: [{ tipo: 'RONDA_AVANZADA', ronda: proxima }],
+  };
+}
+
+/**
+ * Revela la siguiente mano del Showdown en orden ascendente de Ficha roja.
+ */
+function revelarShowdown(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
+  if (golpe.ronda !== 'SHOWDOWN') {
+    return errorAccion(
+      'ACCION_NO_PERMITIDA',
+      'Solo se pueden revelar manos durante el Showdown.',
+    );
+  }
+
+  const total = estado.jugadores.length;
+  if (golpe.reveladoShowdown >= total) {
+    return errorAccion(
+      'ACCION_NO_PERMITIDA',
+      'Todas las manos ya fueron reveladas.',
+    );
+  }
+
+  const orden = ordenJugadoresShowdown(estado.jugadores, golpe.fichas);
+  const jugadorId = orden[golpe.reveladoShowdown]!;
+  const nuevoGolpe: EstadoGolpe = {
+    ...golpe,
+    reveladoShowdown: golpe.reveladoShowdown + 1,
+  };
+
+  return {
+    ok: true,
+    estado: { ...estado, golpeActual: nuevoGolpe },
+    eventos: [{ tipo: 'SHOWDOWN_REVELADO', jugadorId }],
   };
 }
 
@@ -449,6 +492,14 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
     return errorAccion(
       'ACCION_NO_PERMITIDA',
       'El Golpe aún no ha llegado a su Showdown; no puede resolverse.',
+    );
+  }
+
+  const total = estado.jugadores.length;
+  if (golpe.reveladoShowdown < total) {
+    return errorAccion(
+      'ACCION_NO_PERMITIDA',
+      'Aún faltan manos por revelar antes de resolver el Showdown.',
     );
   }
 
@@ -591,6 +642,7 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
     confirmados: [],
+    reveladoShowdown: 0,
   };
 
   return {

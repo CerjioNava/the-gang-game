@@ -214,12 +214,12 @@ function cerrarPanel(overlay: HTMLElement, boton: HTMLElement): void {
 }
 
 /**
- * Monta (una sola vez) el botón global "Ranking de manos" y su panel superpuesto
- * en el documento. Es idempotente: si ya está montado no hace nada, de modo que
- * sobrevive a los re-render de la SPA y permanece disponible durante toda la
- * Partida (criterio 11.3).
+ * Monta el botón global "Ranking de manos" y su panel superpuesto.
+ * Idempotente: si el botón ya existe en el documento no hace nada.
+ * El botón puede ir en `contenedorBoton` (p. ej. footer del shell); el overlay
+ * siempre se monta en `document.body`.
  */
-export function montarRanking(): void {
+export function montarRanking(contenedorBoton?: HTMLElement | null): void {
   if (document.getElementById(ID_BOTON) !== null) {
     return;
   }
@@ -273,6 +273,7 @@ export function montarRanking(): void {
     }
   });
 
-  document.body.appendChild(boton);
+  const destino = contenedorBoton ?? document.body;
+  destino.appendChild(boton);
   document.body.appendChild(overlay);
 }

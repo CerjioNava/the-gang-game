@@ -283,13 +283,9 @@ describe('E2E: un Golpe completo con tres clientes WebSocket', () => {
       );
 
       vistasShowdown.forEach((vista) => {
-        // Todos los bolsillos revelados (ninguno 'OCULTO').
-        for (const jugador of vista.jugadores) {
-          expect(jugador.bolsillo).not.toBe(BOLSILLO_OCULTO);
-          expect(Array.isArray(jugador.bolsillo)).toBe(true);
-          expect((jugador.bolsillo as unknown[]).length).toBe(2);
-        }
-        // Cada Jugador posee exactamente una Ficha roja (orden del Showdown).
+        // Al entrar en SHOWDOWN aún no se revelan todas las manos.
+        const ocultos = vista.jugadores.filter((j) => j.bolsillo === BOLSILLO_OCULTO);
+        expect(ocultos.length).toBeGreaterThan(0);
         const rojasPorJugador = ids.map(
           (id) =>
             (vista.golpeActual!.fichas.porJugador[id!] ?? []).filter(
@@ -299,7 +295,29 @@ describe('E2E: un Golpe completo con tres clientes WebSocket', () => {
         expect(rojasPorJugador).toEqual([1, 1, 1]);
       });
 
-      // --- Paso 7 (opcional): resolver el Showdown. Con un solo Golpe jugado y
+      // Revelar las tres manos en orden (ficha roja 1→3).
+      for (let paso = 1; paso <= 3; paso += 1) {
+        clientes[0]!.enviar('REVELAR_SHOWDOWN');
+        await Promise.all(
+          clientes.map((c, i) =>
+            c.esperarEstado(
+              (v) => v.golpeActual !== null && v.golpeActual.reveladoShowdown === paso,
+              `el cliente ${i} ve revelado ${paso}/3`,
+            ),
+          ),
+        );
+      }
+
+      const vistasReveladas = clientes.map((c) => c.ultimaVista());
+      vistasReveladas.forEach((vista) => {
+        for (const jugador of vista.jugadores) {
+          expect(jugador.bolsillo).not.toBe(BOLSILLO_OCULTO);
+          expect(Array.isArray(jugador.bolsillo)).toBe(true);
+          expect((jugador.bolsillo as unknown[]).length).toBe(2);
+        }
+      });
+
+      // --- Paso 8: resolver el Showdown.
       // sin condición de fin, la Partida encadena el Golpe 2 en PRE_FLOP y se
       // actualiza exactamente una Bóveda o una Alarma.
       const totalAntes =

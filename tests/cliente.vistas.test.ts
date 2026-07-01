@@ -41,6 +41,7 @@ const ACCIONES_INERTES: AccionesMesa = {
   intercambiarCentro() {},
   intercambiarJugador() {},
   avanzar() {},
+  revelarShowdown() {},
   resolverShowdown() {},
   terminarPartida() {},
 };
@@ -92,6 +93,8 @@ function vistaEnCurso(): VistaPartida {
         colorActivo: 'AMARILLO',
       },
       confirmados: [],
+      reveladoShowdown: 0,
+      ordenShowdown: [],
     },
     golpesJugados: 0,
     bovedasDoradas: 1,
@@ -170,7 +173,9 @@ describe('Vista de la mesa: restricciones de comunicación (10.1, 10.5)', () => 
 
     expect(contenedor.querySelectorAll('.jugador-estatus--activo').length).toBe(3);
     expect(contenedor.querySelectorAll('.jugador-estatus--desconectado').length).toBe(1);
-    expect(contenedor.textContent).toContain('Desconectado');
+    expect(
+      contenedor.querySelector('.jugador-estatus--desconectado')?.getAttribute('aria-label'),
+    ).toBe('Desconectado');
   });
 });
 
@@ -198,6 +203,93 @@ describe('Vista de la mesa: recordatorio permanente (10.2)', () => {
   });
 });
 
+describe('Vista de la mesa: showdown (8.2)', () => {
+  function vistaEnShowdown(): VistaPartida {
+    const comunitarias = [
+      carta(10, 'TREBOLES'),
+      carta(11, 'TREBOLES'),
+      carta(12, 'TREBOLES'),
+      carta(13, 'TREBOLES'),
+      carta(14, 'TREBOLES'),
+    ];
+    return {
+      ...vistaEnCurso(),
+      jugadores: [
+        { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(2, 'PICAS'), carta(3, 'PICAS')], conectado: true },
+        { id: 'j2', nombre: 'La Sombra', bolsillo: [carta(4, 'PICAS'), carta(5, 'PICAS')], conectado: true },
+        { id: 'j3', nombre: 'El Manos', bolsillo: [carta(6, 'PICAS'), carta(7, 'PICAS')], conectado: true },
+        { id: 'j4', nombre: 'El Topo', bolsillo: [carta(8, 'PICAS'), carta(9, 'PICAS')], conectado: true },
+      ],
+      golpeActual: {
+        numero: 1,
+        ronda: 'SHOWDOWN',
+        comunitarias,
+        fichas: {
+          numJugadores: 4,
+          centro: [],
+          porJugador: {
+            j1: [ficha('ROJO', 1)],
+            j2: [ficha('ROJO', 2)],
+            j3: [ficha('ROJO', 3)],
+            j4: [ficha('ROJO', 4)],
+          },
+          colorActivo: 'ROJO',
+        },
+        confirmados: [],
+        reveladoShowdown: 0,
+        ordenShowdown: ['j1', 'j2', 'j3', 'j4'],
+      },
+    };
+  }
+
+  function vistaShowdownCompleto(): VistaPartida {
+    return {
+      ...vistaEnShowdown(),
+      golpeActual: {
+        ...vistaEnShowdown().golpeActual!,
+        reveladoShowdown: 4,
+      },
+    };
+  }
+
+  it('no muestra panel de resultados en el overlay central', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaEnShowdown()), ACCIONES_INERTES);
+
+    const overlay = contenedor.querySelector('#mesa-poker-overlay');
+    expect(overlay?.innerHTML.trim()).toBe('');
+    expect(overlay?.textContent ?? '').not.toMatch(/Bóveda abierta|Alarma activada/);
+  });
+
+  it('con reveladoShowdown=0 muestra dorso en asientos ajenos', () => {
+    const contenedor = nuevoContenedor();
+    const vista: VistaPartida = {
+      ...vistaEnShowdown(),
+      perspectivaJugadorId: 'j1',
+      jugadores: [
+        { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(2, 'PICAS'), carta(3, 'PICAS')], conectado: true },
+        { id: 'j2', nombre: 'La Sombra', bolsillo: BOLSILLO_OCULTO, conectado: true },
+        { id: 'j3', nombre: 'El Manos', bolsillo: BOLSILLO_OCULTO, conectado: true },
+        { id: 'j4', nombre: 'El Topo', bolsillo: BOLSILLO_OCULTO, conectado: true },
+      ],
+    };
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+
+    expect(contenedor.querySelector('#boton-revelar-showdown')).not.toBeNull();
+    expect(contenedor.querySelectorAll('.carta-volteo').length).toBeGreaterThan(0);
+    expect(contenedor.querySelector('.asiento--revelando')).not.toBeNull();
+  });
+
+  it('con todas las manos reveladas muestra resumen en barra y botón resolver', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaShowdownCompleto()), ACCIONES_INERTES);
+
+    expect(contenedor.querySelector('.showdown-resumen')).not.toBeNull();
+    expect(contenedor.querySelector('#boton-resolver')).not.toBeNull();
+    expect(contenedor.querySelector('#boton-revelar-showdown')).toBeNull();
+  });
+});
+
 describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
   it('emplea los términos del glosario en los textos de la mesa', () => {
     const contenedor = nuevoContenedor();
@@ -212,15 +304,64 @@ describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
     expect(html).toMatch(/Cartas de Bolsillo/);
   });
 
-  it('no muestra textos de interfaz evidentes en inglés', () => {
+  it('muestra fichas del pool como círculos numerados sin texto TOMAR', () => {
     const contenedor = nuevoContenedor();
     renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
-    const texto = contenedor.textContent ?? '';
 
-    // Palabras de UI claramente en inglés que no deberían aparecer.
-    for (const palabra of ['Send', 'Message', 'Chat', 'Player', 'Start', 'Reveal', 'Cards']) {
-      expect(texto).not.toMatch(new RegExp(`\\b${palabra}\\b`));
+    const botones = contenedor.querySelectorAll<HTMLButtonElement>('.mesa-poker__pool .ficha-boton');
+    expect(botones.length).toBeGreaterThan(0);
+    for (const boton of botones) {
+      expect(boton.textContent?.trim()).toMatch(/^\d+$/);
+      expect(boton.textContent).not.toContain('TOMAR');
+      expect(boton.textContent).not.toContain('★');
+      expect(boton.classList.contains('ficha')).toBe(true);
     }
+  });
+
+  it('no muestra el overlay de showdown resuelto cuando ya empezó el siguiente golpe', () => {
+    const contenedor = nuevoContenedor();
+    const vista: VistaPartida = {
+      ...vistaEnCurso(),
+      golpesJugados: 1,
+      ultimoResultadoGolpe: { numero: 1, exito: false },
+      ultimoShowdownResuelto: {
+        numero: 1,
+        exito: false,
+        comunitarias: vistaEnCurso().golpeActual!.comunitarias,
+        fichas: vistaEnCurso().golpeActual!.fichas,
+        jugadores: vistaEnCurso().jugadores.map((j) => ({
+          ...j,
+          bolsillo:
+            j.bolsillo === BOLSILLO_OCULTO
+              ? BOLSILLO_OCULTO
+              : (j.bolsillo as [Carta, Carta]),
+        })),
+      },
+      golpeActual: {
+        numero: 2,
+        ronda: 'PRE_FLOP',
+        comunitarias: [],
+        fichas: {
+          numJugadores: 4,
+          centro: [],
+          porJugador: {
+            j1: [ficha('BLANCO', 1)],
+            j2: [ficha('BLANCO', 2)],
+            j3: [ficha('BLANCO', 3)],
+            j4: [ficha('BLANCO', 4)],
+          },
+          colorActivo: 'BLANCO',
+        },
+        confirmados: [],
+        reveladoShowdown: 0,
+        ordenShowdown: [],
+      },
+    };
+
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+
+    expect(contenedor.querySelector('#mesa-poker-overlay .showdown--resuelto')).toBeNull();
+    expect(contenedor.querySelector('.mesa-poker__toast--fracaso')).not.toBeNull();
   });
 });
 

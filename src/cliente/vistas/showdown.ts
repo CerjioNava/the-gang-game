@@ -1,32 +1,20 @@
-// Vista del SHOWDOWN y del RESULTADO FINAL del Cliente_Jugador.
-//
-// - `renderizarShowdown` muestra el revelado de las manos de TODOS los Jugadores
-//   en el ORDEN del Showdown: ascendente por el valor en estrellas de su Ficha
-//   roja (criterio 8.2). Para cada Jugador se muestra su nombre, su Ficha roja,
-//   sus dos Cartas de Bolsillo reveladas junto a las Comunitarias, y la categoría
-//   de su mejor mano en español, evaluada con el Evaluador_Manos del dominio.
-//
-// - `renderizarResultado` sustituye el marcador placeholder de la fase
-//   FINALIZADA por una pantalla temática de victoria o derrota con el marcador de
-//   Bóvedas doradas y Alarmas rojas (criterio 9.3).
-//
-// Todos los textos están en español con temática de ladrones y usan los términos
-// del glosario (Golpe, Bóveda, Alarma, Ficha, Showdown).
+// Utilidades de presentación del Showdown en la mesa (revelado progresivo en asientos).
 //
 // _Requirements: 8.2, 9.3_
 
-import { evaluar, type ManoEvaluada } from '../../dominio';
+import {
+  evaluar,
+  resolverShowdown as evaluarShowdownDominio,
+  type ManoEvaluada,
+} from '../../dominio';
+import type { EstadoGolpe, Jugador } from '../../dominio/modelos';
 import { BOLSILLO_OCULTO, type VistaGolpe, type VistaShowdownResuelto } from '../../dominio/proyeccion';
 import type { Carta, JugadorVisible, Palo, VistaPartida } from '../protocolo';
+import { fichaInsigniaHtml } from './atoms/fichaHtml';
 import { estatusJugadorHtml } from './estatusJugador';
-import { nombreConTooltipHtml } from './tooltipNombre';
 import { NOMBRE_CATEGORIA } from './ranking';
+import { nombreConTooltipHtml } from './tooltipNombre';
 
-// ===========================================================================
-// Utilidades de presentación (sin lógica de reglas)
-// ===========================================================================
-
-/** Escapa texto para insertarlo de forma segura como contenido HTML. */
 function escapar(texto: string): string {
   return texto
     .replace(/&/g, '&amp;')
@@ -35,7 +23,6 @@ function escapar(texto: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Símbolo del palo de una Carta (♠ ♥ ♦ ♣). */
 const SIMBOLO_PALO: Record<Palo, string> = {
   PICAS: '♠',
   CORAZONES: '♥',
@@ -43,12 +30,10 @@ const SIMBOLO_PALO: Record<Palo, string> = {
   TREBOLES: '♣',
 };
 
-/** Indica si el palo se pinta en rojo (corazones y diamantes). */
 function paloEsRojo(palo: Palo): boolean {
   return palo === 'CORAZONES' || palo === 'DIAMANTES';
 }
 
-/** Texto del valor de una Carta: 2..10 y figuras J/Q/K/A. */
 function etiquetaValor(valor: number): string {
   switch (valor) {
     case 14:
@@ -64,7 +49,6 @@ function etiquetaValor(valor: number): string {
   }
 }
 
-/** Renderiza una Carta boca arriba con su valor y palo. */
 function cartaHtml(carta: Carta): string {
   const clase = paloEsRojo(carta.palo) ? 'carta carta--roja' : 'carta carta--negra';
   return `
@@ -74,31 +58,12 @@ function cartaHtml(carta: Carta): string {
     </div>`;
 }
 
-/** Pinta las estrellas de una Ficha (p. ej. "★★★"). */
-function estrellas(n: number): string {
-  return '★'.repeat(Math.max(0, n));
-}
-
-// ===========================================================================
-// Orden del Showdown
-// ===========================================================================
-
-/** Un Jugador situado en el orden del Showdown junto a su Ficha roja. */
 interface PosicionShowdown {
   jugador: JugadorVisible;
-  /** Estrellas de la Ficha roja del Jugador (0 si, excepcionalmente, no la tiene). */
   estrellasRojas: number;
 }
 
-/**
- * Devuelve a los Jugadores ordenados ASCENDENTEMENTE por el valor en estrellas
- * de su Ficha roja, conforme al orden del Showdown (criterio 8.2). La Ficha roja
- * de cada Jugador se obtiene de `golpe.fichas.porJugador`.
- */
-function ordenarPorFichaRoja(
-  vista: VistaPartida,
-  golpe: VistaGolpe,
-): PosicionShowdown[] {
+function ordenarPorFichaRoja(vista: VistaPartida, golpe: VistaGolpe): PosicionShowdown[] {
   const posiciones: PosicionShowdown[] = vista.jugadores.map((jugador) => {
     const susFichas = golpe.fichas.porJugador[jugador.id] ?? [];
     const fichaRoja = susFichas.find((f) => f.color === 'ROJO');
@@ -111,46 +76,158 @@ function ordenarPorFichaRoja(
   return posiciones;
 }
 
-// ===========================================================================
-// Render del Showdown
-// ===========================================================================
+function categoriaManoTexto(jugador: JugadorVisible, golpe: VistaGolpe): string {
+  if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
+    return 'Mano no disponible.';
+  }
+  const resultado = evaluar(jugador.bolsillo, golpe.comunitarias);
+  if (!resultado.ok) {
+    return 'Faltan Cartas Comunitarias.';
+  }
+  return NOMBRE_CATEGORIA[resultado.mano.categoria];
+}
 
-/**
- * Renderiza el revelado de manos del Showdown dentro de `contenedor`. Muestra a
- * cada Jugador en el orden ascendente de su Ficha roja, con sus Cartas de
- * Bolsillo reveladas y la categoría de su mejor mano en español.
- *
- * Se invoca cuando la Ronda activa del Golpe en curso es `SHOWDOWN`.
- */
-export function renderizarShowdown(
-  contenedor: HTMLElement,
-  vista: VistaPartida,
-): void {
-  const golpe = vista.golpeActual;
-  if (golpe === null || golpe.ronda !== 'SHOWDOWN') {
-    contenedor.innerHTML = '';
-    return;
+function evaluarResultadoShowdown(vista: VistaPartida, golpe: VistaGolpe) {
+  const jugadores: Jugador[] = vista.jugadores.map((j) => ({
+    id: j.id,
+    nombre: j.nombre,
+    descripcion: j.descripcion,
+    bolsillo:
+      j.bolsillo === null || j.bolsillo === BOLSILLO_OCULTO ? null : j.bolsillo,
+  }));
+  if (jugadores.some((j) => j.bolsillo === null) || golpe.comunitarias.length < 5) {
+    return null;
+  }
+  const estadoGolpe: EstadoGolpe = {
+    numero: golpe.numero,
+    ronda: 'SHOWDOWN',
+    baraja: [],
+    comunitarias: [...golpe.comunitarias],
+    fichas: golpe.fichas,
+    confirmados: [...golpe.confirmados],
+    reveladoShowdown: golpe.reveladoShowdown,
+  };
+  return evaluarShowdownDominio(jugadores, estadoGolpe, vista.ajustes);
+}
+
+/** Resumen del orden de revelado en la barra inferior (sin banner de resultado). */
+export function htmlResumenOrdenShowdown(vista: VistaPartida, golpe: VistaGolpe): string {
+  const evaluacion = evaluarResultadoShowdown(vista, golpe);
+  if (evaluacion === null) {
+    return '';
   }
 
   const orden = ordenarPorFichaRoja(vista, golpe);
+  let violacionIdx = -1;
+  if (evaluacion.violacion !== null) {
+    violacionIdx = orden.findIndex((p) => p.jugador.id === evaluacion.violacion!.posterior);
+  }
+
   const filas = orden
-    .map((posicion) => filaShowdownHtml(posicion, golpe))
+    .map((posicion, indice) => {
+      const categoria = categoriaManoTexto(posicion.jugador, golpe);
+      const fichaHtml =
+        posicion.estrellasRojas > 0
+          ? fichaInsigniaHtml({ color: 'ROJO', estrellas: posicion.estrellasRojas })
+          : '';
+      let marca = '✓';
+      let claseMarca = 'showdown-resumen__marca showdown-resumen__marca--ok';
+      if (indice === 0) {
+        marca = '·';
+        claseMarca = 'showdown-resumen__marca';
+      } else if (indice === violacionIdx) {
+        marca = '✗';
+        claseMarca = 'showdown-resumen__marca showdown-resumen__marca--error';
+      } else if (violacionIdx >= 0 && indice > violacionIdx) {
+        marca = '—';
+        claseMarca = 'showdown-resumen__marca';
+      }
+      return `
+        <li class="showdown-resumen__fila">
+          <span class="${claseMarca}" aria-hidden="true">${marca}</span>
+          <span class="showdown-resumen__nombre">${escapar(posicion.jugador.nombre)}</span>
+          ${fichaHtml}
+          <span class="showdown-resumen__categoria">${escapar(categoria)}</span>
+        </li>`;
+    })
     .join('');
 
-  contenedor.innerHTML = `
-    <section class="bloque showdown">
-      <h3>Showdown · revelado de manos</h3>
-      <p class="showdown__ayuda">
-        Las manos se descubren en orden ascendente de Ficha roja, de la de menor
-        valor a la de mayor. El golpe sale bien si la fuerza no decrece al avanzar.
-      </p>
-      <ol class="showdown__lista">${filas}</ol>
-    </section>`;
+  const ayuda = evaluacion.exito
+    ? 'Orden correcto: la fuerza no decrece al revelar.'
+    : 'Orden incorrecto: una mano posterior es más débil que la anterior.';
+
+  return `
+    <div class="showdown-resumen" role="region" aria-label="Orden de revelado del Showdown">
+      <p class="showdown-resumen__titulo">Orden de revelado (ficha roja 1→${orden.length})</p>
+      <ol class="showdown-resumen__lista">${filas}</ol>
+      <p class="showdown-resumen__ayuda">${ayuda}</p>
+    </div>`;
+}
+
+/** Botones y resumen del Showdown en la barra inferior de la mesa. */
+export function htmlAccionesShowdown(vista: VistaPartida, esEspectador: boolean): string {
+  const golpe = vista.golpeActual;
+  if (golpe === null || golpe.ronda !== 'SHOWDOWN') {
+    return '';
+  }
+
+  const total = vista.jugadores.length;
+  const revelado = golpe.reveladoShowdown;
+
+  if (esEspectador) {
+    if (revelado < total) {
+      return `<p class="showdown__espera-resolver">Revelado de manos: ${revelado}/${total}</p>`;
+    }
+    return `<p class="showdown__espera-resolver">Esperando a que un jugador cierre el showdown…</p>`;
+  }
+
+  let boton = '';
+  if (revelado < total) {
+    const siguienteId = golpe.ordenShowdown[revelado];
+    const siguiente = vista.jugadores.find((j) => j.id === siguienteId);
+    const nombre = siguiente?.nombre ?? 'siguiente';
+    boton = `
+      <button type="button" id="boton-revelar-showdown" class="boton boton--golpe">
+        Revelar mano de ${escapar(nombre)}
+      </button>`;
+  } else {
+    boton = `
+      <button type="button" id="boton-resolver" class="boton boton--golpe">
+        Continuar al siguiente golpe
+      </button>`;
+  }
+
+  const resumen = revelado >= total ? htmlResumenOrdenShowdown(vista, golpe) : '';
+
+  return `
+    <div class="showdown-acciones">
+      ${resumen}
+      <div class="showdown-acciones__botones">${boton}</div>
+    </div>`;
+}
+
+/** @deprecated Usar htmlAccionesShowdown en la barra de la mesa. */
+export function htmlBotonContinuarShowdown(esEspectador: boolean): string {
+  if (esEspectador) {
+    return `<p class="showdown__espera-resolver">Esperando a que un jugador cierre el showdown…</p>`;
+  }
+  return `
+    <button type="button" id="boton-resolver" class="boton boton--golpe showdown__continuar">
+      Continuar al siguiente golpe
+    </button>`;
+}
+
+/** Categoría de mano para mostrar bajo las cartas de un asiento revelado. */
+export function htmlCategoriaAsientoShowdown(jugador: JugadorVisible, golpe: VistaGolpe): string {
+  if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
+    return '';
+  }
+  const texto = categoriaManoTexto(jugador, golpe);
+  return `<p class="asiento__categoria-mano">${escapar(texto)}</p>`;
 }
 
 /**
- * Renderiza el Showdown ya resuelto con el resultado del Golpe (bóveda o alarma).
- * Persiste hasta que alguien mueve fichas en el siguiente Golpe.
+ * Renderiza el Showdown ya resuelto (pantalla finalizada).
  */
 export function renderizarShowdownResuelto(
   contenedor: HTMLElement,
@@ -168,6 +245,8 @@ export function renderizarShowdownResuelto(
     comunitarias: resuelto.comunitarias,
     fichas: resuelto.fichas,
     confirmados: [],
+    reveladoShowdown: resuelto.jugadores.length,
+    ordenShowdown: resuelto.jugadores.map((j) => j.id),
   };
 
   const vistaOrden: VistaPartida = {
@@ -192,23 +271,13 @@ export function renderizarShowdownResuelto(
     <section class="bloque showdown showdown--resuelto">
       <h3>Golpe ${resuelto.numero} · resultado del showdown</h3>
       ${bannerExito}
-      <p class="showdown__ayuda">
-        Manos reveladas en orden ascendente de Ficha roja. El resultado permanece
-        visible hasta que alguien mueva fichas en el siguiente golpe.
-      </p>
       <ol class="showdown__lista">${filas}</ol>
     </section>`;
 }
 
-/** Renderiza la fila de un Jugador en el revelado del Showdown. */
-function filaShowdownHtml(
-  posicion: PosicionShowdown,
-  golpe: VistaGolpe,
-): string {
+function filaShowdownHtml(posicion: PosicionShowdown, golpe: VistaGolpe): string {
   const { jugador, estrellasRojas } = posicion;
 
-  // Cartas de Bolsillo reveladas (en el Showdown la vista del servidor las revela
-  // para todos). Se contemplan los casos límite por completitud.
   let cartas: string;
   if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
     cartas = '<p class="mesa__sin-cartas">Sin Cartas de Bolsillo.</p>';
@@ -218,24 +287,22 @@ function filaShowdownHtml(
       .join('')}</div>`;
   }
 
+  const fichaRojaHtml =
+    estrellasRojas > 0
+      ? fichaInsigniaHtml({ color: 'ROJO', estrellas: estrellasRojas })
+      : '';
+
   return `
     <li class="showdown__jugador">
       <div class="showdown__cabecera">
         <span class="showdown__nombre">${estatusJugadorHtml(jugador.conectado)}<span class="showdown__alias">${nombreConTooltipHtml(jugador.nombre, jugador.descripcion)}</span></span>
-        <span class="ficha ficha--rojo" title="Ficha roja de ${estrellasRojas} estrellas">
-          ${estrellas(estrellasRojas)}
-        </span>
+        ${fichaRojaHtml}
       </div>
       ${cartas}
       <p class="showdown__categoria">${categoriaManoHtml(jugador, golpe)}</p>
     </li>`;
 }
 
-/**
- * Evalúa la mejor mano del Jugador (sus 2 Cartas de Bolsillo + las 5
- * Comunitarias) con el Evaluador_Manos del dominio y devuelve el nombre de la
- * categoría en español. Si faltan cartas, lo indica sin romper la vista.
- */
 function categoriaManoHtml(jugador: JugadorVisible, golpe: VistaGolpe): string {
   if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
     return 'Mano no disponible.';
@@ -248,19 +315,10 @@ function categoriaManoHtml(jugador: JugadorVisible, golpe: VistaGolpe): string {
   return `Mejor mano: <strong>${NOMBRE_CATEGORIA[mano.categoria]}</strong>`;
 }
 
-// ===========================================================================
-// Render del RESULTADO FINAL (fase FINALIZADA)
-// ===========================================================================
-
-/** Acciones opcionales en la pantalla de resultado final. */
 export interface AccionesResultado {
   terminarPartida(): void;
 }
 
-/**
- * Renderiza la pantalla de resultado final temática (criterio 9.3): VICTORIA o
- * DERROTA del equipo, con el marcador de Bóvedas doradas y Alarmas rojas.
- */
 export function renderizarResultado(
   contenedor: HTMLElement,
   vista: VistaPartida,
@@ -282,7 +340,6 @@ export function renderizarResultado(
     mensaje = 'Las alarmas os delataron…';
     claseEstado = 'resultado--derrota';
   } else {
-    // Estado defensivo: FINALIZADA sin resultado explícito.
     titulo = 'El golpe ha terminado';
     mensaje = 'La banda se dispersa en la noche.';
     claseEstado = '';

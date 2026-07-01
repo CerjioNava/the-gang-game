@@ -1,0 +1,272 @@
+/* App shell — viewport fijo 1366×768+ sin scroll */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100%;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+#app.app-shell {
+  display: grid;
+}
+
+.app-shell__hud {
+  grid-row: 1;
+  flex-shrink: 0;
+  padding: 0.45rem 1rem;
+  background: rgba(20, 23, 28, 0.95);
+  border-bottom: 1px solid var(--panel-borde);
+}
+
+.app-shell__hud-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.app-shell__marca {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.app-shell__titulo {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--oro);
+}
+
+.app-shell__fase {
+  font-size: 0.9rem;
+  color: var(--texto-tenue);
+}
+
+.app-shell__conexion {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.app-shell__conexion--conectado {
+  background: rgba(46, 125, 87, 0.25);
+  color: #6ad29a;
+}
+
+.app-shell__conexion--conectando {
+  background: rgba(217, 165, 33, 0.15);
+  color: var(--oro-fuerte);
+}
+
+.app-shell__conexion--desconectado {
+  background: rgba(192, 57, 43, 0.2);
+  color: #e88b80;
+}
+
+.app-shell__alerta {
+  grid-row: 2;
+  margin: 0;
+  padding: 0.45rem 1rem;
+  background: rgba(192, 57, 43, 0.15);
+  border-bottom: 1px solid var(--alarma);
+  color: #f0b3ab;
+  font-size: 0.88rem;
+  overflow: hidden;
+  transition: max-height 0.15s ease, padding 0.15s ease, border-width 0.15s ease;
+  max-height: 4rem;
+}
+
+.app-shell__alerta[hidden] {
+  /* Mantener el slot en el grid (no display:none) para que main conserve la fila 1fr. */
+  visibility: hidden;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+}
+
+.app-shell__main {
+  grid-row: 3;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__main:has(.mesa-poker) {
+  overflow: visible;
+}
+
+/* Las vistas de fase deben ocupar el espacio restante del grid (1fr). */
+.app-shell__main > * {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+}
+
+.app-shell__main > .mesa-poker {
+  overflow: visible;
+}
+
+.app-shell__footer {
+  grid-row: 4;
+  flex-shrink: 0;
+  padding: 0.35rem 1rem;
+  border-top: 1px solid var(--panel-borde);
+  background: rgba(20, 23, 28, 0.92);
+}
+
+.app-shell__footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.app-shell__lema {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--texto-tenue);
+  font-style: italic;
+}
+
+.app-shell__footer .ranking-boton {
+  position: static;
+  margin: 0;
+}
+
+/* Lobby horizontal */
+.lobby--horizontal {
+  display: grid;
+  grid-template-columns: minmax(280px, 34%) 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  padding: 0.75rem 1rem 0.5rem;
+  overflow: hidden;
+  align-content: stretch;
+}
+
+.app-shell__main .lobby__cabecera h2 {
+  display: none;
+}
+
+.lobby--horizontal .lobby__cabecera {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.lobby--horizontal .lobby__panel-entrada {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.lobby--horizontal .lobby__panel-banda {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.lobby--horizontal .lobby__miembros,
+.lobby--horizontal .lobby__espectadores {
+  flex: 1 1 auto;
+  min-height: min-content;
+  overflow-y: auto;
+}
+
+.lobby--horizontal .lobby__lista-miembros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lobby--horizontal .lobby__tarjeta-miembro {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  background: #11151a;
+  border: 1px solid var(--panel-borde);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.88rem;
+}
+
+.pantalla-fin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  gap: 1rem;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.pantalla-fin__showdown {
+  max-height: 45%;
+  overflow: auto;
+  width: 100%;
+  max-width: 900px;
+}
+
+.pantalla-fin__resultado {
+  width: 100%;
+  max-width: 520px;
+}
+
+@media (max-width: 900px) {
+  .lobby--horizontal {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .lobby--horizontal .lobby__panel-entrada {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .lobby--horizontal .lobby__panel-banda {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}

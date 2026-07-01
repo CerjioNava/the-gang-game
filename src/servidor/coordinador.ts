@@ -87,6 +87,7 @@ export const MensajeCliente = {
   AVANZAR: 'AVANZAR',
   /** Resolver el Showdown del Golpe. payload: ninguno. */
   RESOLVER_SHOWDOWN: 'RESOLVER_SHOWDOWN',
+  REVELAR_SHOWDOWN: 'REVELAR_SHOWDOWN',
   /** Terminar la Partida y volver al Lobby (solo anfitrión). payload: ninguno. */
   TERMINAR_PARTIDA: 'TERMINAR_PARTIDA',
   /** Tomar una Ficha del centro. payload: `{ ficha: Ficha }`. */
@@ -326,6 +327,13 @@ export class Coordinador {
           return rechazoAvanzar;
         }
         return this.#aplicar({ tipo: 'CONFIRMAR', jugadorId });
+      }
+      case MensajeCliente.REVELAR_SHOWDOWN: {
+        const rechazoRevelar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoRevelar !== null) {
+          return rechazoRevelar;
+        }
+        return this.#aplicar({ tipo: 'REVELAR_SHOWDOWN' });
       }
       case MensajeCliente.RESOLVER_SHOWDOWN: {
         const rechazoShowdown = this.#rechazarSiEspectador(jugadorId);

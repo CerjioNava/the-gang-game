@@ -52,6 +52,19 @@ function llevarAShowdown(estadoInicial: EstadoPartida): EstadoPartida {
   return estado;
 }
 
+/** Revela todas las manos del Showdown en curso. */
+function revelarTodasLasManos(estadoInicial: EstadoPartida): EstadoPartida {
+  let estado = estadoInicial;
+  const n = estado.jugadores.length;
+  while (estado.golpeActual !== null && estado.golpeActual.reveladoShowdown < n) {
+    const resultado = aplicarAccion(estado, { tipo: 'REVELAR_SHOWDOWN' });
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) break;
+    estado = resultado.estado;
+  }
+  return estado;
+}
+
 describe('solicitarCartasDe: rechazo de solicitud de cartas ajenas sin revelar valor', () => {
   it('antes del Showdown (Pre-Flop), A solicita las cartas de B → rechazo ACCION_NO_PERMITIDA sin revelar valor', () => {
     const estado = iniciarPartida(crearJugadores(3), SEMILLA);
@@ -93,7 +106,9 @@ describe('solicitarCartasDe: rechazo de solicitud de cartas ajenas sin revelar v
   });
 
   it('en SHOWDOWN, A puede solicitar las cartas de B → ok=true con el bolsillo de B', () => {
-    const estado = llevarAShowdown(iniciarPartida(crearJugadores(3), SEMILLA));
+    const estado = revelarTodasLasManos(
+      llevarAShowdown(iniciarPartida(crearJugadores(3), SEMILLA)),
+    );
 
     const a = estado.jugadores[0]!;
     const b = estado.jugadores[1]!;

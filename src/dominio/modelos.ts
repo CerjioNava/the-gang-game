@@ -200,6 +200,8 @@ export interface EstadoGolpe {
   fichas: EstadoFichas;
   /** Ids de los jugadores que han confirmado su ficha en la ronda actual. Arranca vacío en cada ronda. */
   confirmados: string[];
+  /** Cuántos jugadores del orden de showdown ya revelaron mano (0..N). Solo en SHOWDOWN. */
+  reveladoShowdown: number;
 }
 
 /** Estado autoritativo completo de la Partida. */
@@ -309,6 +311,7 @@ export type EventoJuego =
   | { tipo: 'RONDA_AVANZADA'; ronda: Ronda }
   | { tipo: 'FICHA_TOMADA'; jugadorId: string; ficha: Ficha }
   | { tipo: 'FICHA_INTERCAMBIADA'; jugadorId: string }
+  | { tipo: 'SHOWDOWN_REVELADO'; jugadorId: string }
   | { tipo: 'SHOWDOWN_RESUELTO'; exito: boolean }
   | { tipo: 'PARTIDA_FINALIZADA'; resultado: ResultadoPartida };
 

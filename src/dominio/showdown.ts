@@ -41,7 +41,7 @@ import type {
  * @throws {Error} Si el Jugador no posee una Ficha roja (precondición del
  *   Showdown: todos los Jugadores tienen su Ficha roja, criterio 8.1).
  */
-function estrellasRojasDe(fichas: EstadoFichas, jugadorId: string): number {
+export function estrellasRojasDe(fichas: EstadoFichas, jugadorId: string): number {
   const propias = fichas.porJugador[jugadorId] ?? [];
   const roja = propias.find((f) => f.color === 'ROJO');
   if (roja === undefined) {
@@ -77,6 +77,20 @@ function evaluarManoDe(
 
 /** Las cinco Cartas Comunitarias necesarias para evaluar en el Showdown. */
 type ManoEntrada = EstadoGolpe['comunitarias'];
+
+/**
+ * Devuelve los ids de Jugadores en orden ascendente por estrellas de Ficha roja
+ * (orden oficial del Showdown, criterio 8.2).
+ */
+export function ordenJugadoresShowdown(
+  jugadores: readonly { id: string }[],
+  fichas: EstadoFichas,
+): string[] {
+  return [...jugadores]
+    .map((j) => ({ id: j.id, estrellas: estrellasRojasDe(fichas, j.id) }))
+    .sort((a, b) => a.estrellas - b.estrellas)
+    .map((p) => p.id);
+}
 
 /**
  * Resuelve el Showdown de un Golpe.

@@ -93,12 +93,14 @@ export function renderizarEntradaEspectador(
       : 'La Partida está en marcha. Puedes observar a la banda sin participar en el juego.';
 
   contenedor.innerHTML = `
-    <section class="lobby lobby--espectador">
+    <section class="lobby lobby--espectador lobby--horizontal">
       <header class="lobby__cabecera">
         <h2>Observar el golpe</h2>
         <p class="lobby__intro">${intro}</p>
       </header>
-      ${selectorAliasEspectadorHtml(estado)}
+      <div class="lobby__panel-entrada">
+        ${selectorAliasEspectadorHtml(estado)}
+      </div>
     </section>
   `;
 
@@ -183,7 +185,7 @@ export function renderizarLobby(
 
                 : '';
 
-            return `<li class="lobby__jugador">
+            return `<li class="lobby__tarjeta-miembro lobby__jugador">
 
               <span class="lobby__jugador-info">${estatusJugadorHtml(j.conectado)}<span class="lobby__alias">${nombreConTooltipHtml(j.nombre, j.descripcion)}${etiqueta}</span></span>
 
@@ -229,7 +231,7 @@ export function renderizarLobby(
 
                 : '';
 
-            return `<li class="lobby__jugador lobby__jugador--espectador">
+            return `<li class="lobby__tarjeta-miembro lobby__jugador lobby__jugador--espectador">
 
               <span class="lobby__jugador-info">${estatusJugadorHtml(e.conectado)}<span class="lobby__alias">${nombreConTooltipHtml(e.nombre, e.descripcion)}${etiqueta}</span></span>
 
@@ -265,7 +267,7 @@ export function renderizarLobby(
 
   contenedor.innerHTML = `
 
-    <section class="lobby">
+    <section class="lobby lobby--horizontal">
 
       <header class="lobby__cabecera">
 
@@ -283,105 +285,113 @@ export function renderizarLobby(
 
 
 
-      <div class="lobby__miembros">
+      <div class="lobby__panel-entrada">
 
-        <h3>Miembros de la banda (${total}/${JUGADORES_MAX})</h3>
+        ${
 
-        <ul class="lobby__lista">${listaHtml}</ul>
+          esEspectador
+
+            ? `<p class="lobby__estado-unido lobby__estado-espectador">Estás observando como espectador. Esperando a que dé comienzo el golpe…</p>`
+
+            : esJugador
+
+            ? `<p class="lobby__estado-unido">Estás dentro de la banda. Esperando a más miembros…</p>`
+
+            : `
+
+          ${selectorAliasHtml(estado)}
+
+          `
+
+        }
+
+
+
+        <fieldset class="lobby__ajustes" ${!esAnfitrion || esEspectador ? 'disabled' : ''}>
+
+          <legend>Ajustes del Golpe</legend>
+
+          <div class="lobby__ajuste-fila">
+
+            <label class="switch" for="check-sin-kickers">
+
+              <input
+
+                type="checkbox"
+
+                id="check-sin-kickers"
+
+                role="switch"
+
+                ${estado.vista?.ajustes?.sinKickers ? 'checked' : ''}
+
+                ${!esAnfitrion ? 'disabled' : ''}
+
+              />
+
+              <span class="switch__slider"></span>
+
+            </label>
+
+            <span class="lobby__ajuste-texto">Jugar sin kickers</span>
+
+          </div>
+
+          <p class="lobby__ajuste-desc">
+
+            Al empatar en categoría, se comparan las cartas de bolsillo en vez de los kickers.
+
+          </p>
+
+          ${!esAnfitrion && registrado ? '<p class="lobby__ajuste-nota">Solo el anfitrión puede cambiar los ajustes.</p>' : ''}
+
+        </fieldset>
+
+
+
+        <button
+
+          type="button"
+
+          id="boton-iniciar"
+
+          class="boton boton--golpe"
+
+          ${puedeIniciar && esAnfitrion && esJugador ? '' : 'disabled'}
+
+        >
+
+          Dar el golpe
+
+        </button>
+
+        ${avisoInicio}
 
       </div>
 
 
 
-      <div class="lobby__espectadores">
+      <div class="lobby__panel-banda">
 
-        <h3>Espectadores (${espectadores.length})</h3>
+        <div class="lobby__miembros">
 
-        <ul class="lobby__lista">${listaEspectadoresHtml}</ul>
+          <h3>Miembros de la banda (${total}/${JUGADORES_MAX})</h3>
 
-      </div>
-
-
-
-      ${
-
-        esEspectador
-
-          ? `<p class="lobby__estado-unido lobby__estado-espectador">Estás observando como espectador. Esperando a que dé comienzo el golpe…</p>`
-
-          : esJugador
-
-          ? `<p class="lobby__estado-unido">Estás dentro de la banda. Esperando a más miembros…</p>`
-
-          : `
-
-        ${selectorAliasHtml(estado)}
-
-        `
-
-      }
-
-
-
-      <fieldset class="lobby__ajustes" ${!esAnfitrion || esEspectador ? 'disabled' : ''}>
-
-        <legend>Ajustes del Golpe</legend>
-
-        <div class="lobby__ajuste-fila">
-
-          <label class="switch" for="check-sin-kickers">
-
-            <input
-
-              type="checkbox"
-
-              id="check-sin-kickers"
-
-              role="switch"
-
-              ${estado.vista?.ajustes?.sinKickers ? 'checked' : ''}
-
-              ${!esAnfitrion ? 'disabled' : ''}
-
-            />
-
-            <span class="switch__slider"></span>
-
-          </label>
-
-          <span class="lobby__ajuste-texto">Jugar sin kickers</span>
+          <ul class="lobby__lista-miembros">${listaHtml}</ul>
 
         </div>
 
-        <p class="lobby__ajuste-desc">
-
-          Al empatar en categoría, se comparan las cartas de bolsillo en vez de los kickers.
-
-        </p>
-
-        ${!esAnfitrion && registrado ? '<p class="lobby__ajuste-nota">Solo el anfitrión puede cambiar los ajustes.</p>' : ''}
-
-      </fieldset>
 
 
+        <div class="lobby__espectadores">
 
-      <button
+          <h3>Espectadores (${espectadores.length})</h3>
 
-        type="button"
+          <ul class="lobby__lista-miembros">${listaEspectadoresHtml}</ul>
 
-        id="boton-iniciar"
+        </div>
 
-        class="boton boton--golpe"
-
-        ${puedeIniciar && esAnfitrion && esJugador ? '' : 'disabled'}
-
-      >
-
-        Dar el golpe
-
-      </button>
-
-      ${avisoInicio}
+      </div>
 
     </section>
 

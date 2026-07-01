@@ -1,0 +1,528 @@
+/* Mesa de póker — layout elíptico desktop */
+
+.mesa-poker {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: visible;
+  position: relative;
+}
+
+.mesa-poker__hud {
+  grid-row: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.35rem 0.75rem;
+  flex-shrink: 0;
+}
+
+.mesa-poker__marcador {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.mesa-poker__marcador-grupo {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.mesa-poker__marcador-etiq {
+  color: var(--texto-tenue);
+}
+
+.mesa-poker__marcador-num {
+  color: var(--texto-tenue);
+  font-size: 0.72rem;
+}
+
+.mesa-poker__ronda {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mesa-poker__golpe {
+  font-weight: 600;
+  color: var(--oro);
+}
+
+.mesa-poker__fase {
+  color: var(--texto);
+  font-size: 0.9rem;
+}
+
+.mesa-poker__timer {
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 200, 80, 0.12);
+  border: 1px solid rgba(255, 200, 80, 0.35);
+}
+
+.mesa-poker__timer-valor {
+  font-weight: 700;
+  color: #ffc850;
+  font-size: 0.95rem;
+}
+
+.mesa-poker__historial {
+  font-size: 0.8rem;
+  color: var(--texto-tenue);
+}
+
+.mesa-poker__historial ol {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  max-height: 4rem;
+  overflow: auto;
+}
+
+.mesa-poker__terminar {
+  margin-left: auto;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.mesa-poker__toast {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  pointer-events: none;
+}
+
+.mesa-poker__toast--exito {
+  background: rgba(40, 90, 40, 0.9);
+  border: 1px solid #2a5a2a;
+  color: #b8e6b8;
+}
+
+.mesa-poker__toast--fracaso {
+  background: rgba(90, 30, 30, 0.9);
+  border: 1px solid #6a2a2a;
+  color: #f0b8b8;
+}
+
+.mesa-poker__mesa {
+  grid-row: 2;
+  grid-column: 1;
+  --felt-top: 11%;
+  --felt-x: 7%;
+  --felt-bottom: 13%;
+  position: relative;
+  min-height: 240px;
+  margin: 0 0.75rem 0.5rem;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.mesa-poker__felt {
+  position: absolute;
+  top: var(--felt-top);
+  left: var(--felt-x);
+  right: var(--felt-x);
+  bottom: var(--felt-bottom);
+  border-radius: 50% / 42%;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 45%, #1a5c38 0%, #0f3d24 55%, #0a2818 100%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.015) 0,
+      rgba(255, 255, 255, 0.015) 2px,
+      transparent 2px,
+      transparent 6px
+    );
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.45),
+    0 0 0 8px #3d2817,
+    0 0 0 12px #2a1a0e,
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  overflow: visible;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mesa-poker__centro {
+  position: absolute;
+  inset: var(--felt-top) var(--felt-x) var(--felt-bottom);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  z-index: 3;
+  max-width: none;
+  pointer-events: none;
+}
+
+.mesa-poker__centro > * {
+  pointer-events: auto;
+  max-width: 90%;
+}
+
+.mesa-poker__centro-etiq {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.mesa-poker__comunitarias {
+  justify-content: center;
+}
+
+.carta--placeholder {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+.mesa-poker__centro-pool {
+  text-align: center;
+}
+
+.mesa-poker__pool {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mesa-poker__pool .ficha-boton {
+  width: 2.85rem;
+  height: 2.85rem;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+}
+
+.mesa-poker__pool .ficha-boton__valor {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mesa-poker__pool-vacio {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mesa-poker__asientos {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: visible;
+}
+
+.asiento {
+  position: absolute;
+  left: var(--asiento-x, 50%);
+  top: var(--asiento-y, 50%);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 11rem;
+  padding: 0.35rem 0.5rem;
+  background: rgba(14, 18, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 1;
+}
+
+.asiento:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.asiento--yo {
+  max-width: 14rem;
+  border-color: rgba(217, 165, 33, 0.45);
+  box-shadow:
+    0 0 20px rgba(217, 165, 33, 0.15),
+    0 8px 22px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.mesa-poker__comunitarias [data-animate-key],
+.mesa-poker__pool [data-animate-key] {
+  display: inline-flex;
+}
+
+.asiento__cabecera {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+}
+
+.asiento__nombre {
+  font-weight: 600;
+}
+
+.asiento__tu {
+  color: var(--oro-fuerte);
+  font-weight: 400;
+}
+
+.asiento__confirmado {
+  color: #6ad29a;
+  font-weight: 700;
+}
+
+.asiento__cartas-etiq {
+  display: block;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  margin-bottom: 0.15rem;
+}
+
+.asiento__cartas {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.asiento__fichas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  justify-content: center;
+}
+
+.asiento__intercambio {
+  font-size: 0.68rem;
+  padding: 0.25rem 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.mesa-poker__overlay {
+  grid-row: 2;
+  grid-column: 1;
+  position: relative;
+  z-index: 100;
+  margin: 0 0.75rem 0.5rem;
+  min-height: 0;
+  align-self: stretch;
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+  overflow: auto;
+}
+
+.mesa-poker__overlay:not(:empty) {
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.mesa-poker__overlay .bloque.showdown {
+  pointer-events: auto;
+  max-width: min(520px, 92%);
+  max-height: 85%;
+  overflow: auto;
+  background: rgba(14, 18, 24, 0.96);
+  border: 1px solid var(--panel-borde);
+  margin: 0;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.mesa-poker__overlay .showdown__acciones {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--panel-borde);
+}
+
+.mesa-poker__overlay .showdown__continuar {
+  min-width: min(100%, 16rem);
+}
+
+.mesa-poker__overlay .showdown__espera-resolver {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--texto-tenue);
+}
+
+.mesa-poker__bar {
+  grid-row: 3;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid var(--panel-borde);
+  background: var(--panel);
+}
+
+.mesa-poker__acciones-slot {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  max-width: min(52%, 28rem);
+}
+
+.showdown-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.showdown-acciones__botones {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.showdown-resumen {
+  font-size: 0.72rem;
+  color: var(--texto);
+  max-height: 6.5rem;
+  overflow: auto;
+}
+
+.showdown-resumen__titulo {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--texto-tenue);
+}
+
+.showdown-resumen__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.showdown-resumen__fila {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.12rem 0;
+}
+
+.showdown-resumen__marca {
+  width: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.showdown-resumen__marca--ok {
+  color: var(--exito, #6ecf8a);
+}
+
+.showdown-resumen__marca--error {
+  color: var(--alarma, #e85d5d);
+}
+
+.showdown-resumen__nombre {
+  min-width: 4.5rem;
+  font-weight: 600;
+}
+
+.showdown-resumen__categoria {
+  color: var(--texto-tenue);
+  margin-left: auto;
+}
+
+.showdown-resumen__ayuda {
+  margin: 0.25rem 0 0;
+  color: var(--texto-tenue);
+}
+
+.showdown__espera-resolver {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--texto-tenue);
+}
+
+.asiento--revelando {
+  outline: 2px solid rgba(212, 175, 55, 0.75);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.asiento__categoria-mano {
+  margin: 0.15rem 0 0;
+  font-size: 0.65rem;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
+.asiento__cartas--siguiente {
+  filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.45));
+}
+
+.mesa-poker__espera {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--texto-tenue);
+}
+
+.recordatorio--compacto {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.carta--mini {
+  width: 2.1rem;
+  height: 2.9rem;
+  font-size: 0.75rem;
+}
+
+.carta--hero {
+  width: 3.4rem;
+  height: 4.6rem;
+  font-size: 1rem;
+}
+
+.cartas-fila--hero {
+  gap: 0.35rem;
+}
+
+.ficha-boton {
+  transition: transform 0.12s ease;
+}
+
+.ficha-boton:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+.ficha-boton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asiento,
+  .ficha-boton {
+    transition: none;
+  }
+
+  .ficha-boton:hover:not(:disabled) {
+    transform: none;
+  }
+}
