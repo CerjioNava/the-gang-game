@@ -1,0 +1,237 @@
+[
+  {
+    "nombre": "Farol Galáctico",
+    "categoria": "Los \"Expertos\" del Farol (Dedicados al engaño)",
+    "descripcion": "Para los que mienten tan grande que se nota desde el espacio."
+  },
+  {
+    "nombre": "Cara Palo",
+    "categoria": "Los \"Expertos\" del Farol (Dedicados al engaño)",
+    "descripcion": "El clásico rostro inexpresivo... o de madera."
+  },
+  {
+    "nombre": "Mirada Bizca",
+    "categoria": "Los \"Expertos\" del Farol (Dedicados al engaño)",
+    "descripcion": "Nadie sabrá jamás a qué cartas estás mirando realmente."
+  },
+  {
+    "nombre": "Mentira Piadosa",
+    "categoria": "Los \"Expertos\" del Farol (Dedicados al engaño)",
+    "descripcion": "\"Te juro que no tengo nada\"... y pum, te ganan la ronda."
+  },
+  {
+    "nombre": "Estrategia Cero",
+    "categoria": "Los \"Expertos\" del Farol (Dedicados al engaño)",
+    "descripcion": "Cuando ganas puramente por el caos que generas."
+  },
+  {
+    "nombre": "Padrinos Pobres",
+    "categoria": "La \"Mafia\" del Descarte (Estilo gángster pero con gracia)",
+    "descripcion": "Tienen la actitud de Don Corleone, pero el presupuesto de un estudiante."
+  },
+  {
+    "nombre": "Matones Tiernos",
+    "categoria": "La \"Mafia\" del Descarte (Estilo gángster pero con gracia)",
+    "descripcion": "Te roban las fichas, pero siempre pidiendo por favor."
+  },
+  {
+    "nombre": "Banda Desastrosa",
+    "categoria": "La \"Mafia\" del Descarte (Estilo gángster pero con gracia)",
+    "descripcion": "La coordinación y la estrategia brillan por su ausencia."
+  },
+  {
+    "nombre": "Capos Calvos",
+    "categoria": "La \"Mafia\" del Descarte (Estilo gángster pero con gracia)",
+    "descripcion": "Porque la tensión de la partida los va a dejar sin pelo."
+  },
+  {
+    "nombre": "Dedos Sucios",
+    "categoria": "La \"Mafia\" del Descarte (Estilo gángster pero con gracia)",
+    "descripcion": "Para ese jugador que siempre parece estar escondiendo una carta en la manga."
+  },
+  {
+    "nombre": "All-in Ciego",
+    "categoria": "Los Reyes de la Bancarrota (Suerte y desgracia)",
+    "descripcion": "Apostarlo absolutamente todo sin mirar... y rezar."
+  },
+  {
+    "nombre": "Cero Fichas",
+    "categoria": "Los Reyes de la Bancarrota (Suerte y desgracia)",
+    "descripcion": "El estado natural de la mitad de la mesa a los veinte minutos de empezar."
+  },
+  {
+    "nombre": "Suerte Perra",
+    "categoria": "Los Reyes de la Bancarrota (Suerte y desgracia)",
+    "descripcion": "Para cuando los planetas se alinean a tu favor de la forma más absurda."
+  },
+  {
+    "nombre": "Bancarrota Segura",
+    "categoria": "Los Reyes de la Bancarrota (Suerte y desgracia)",
+    "descripcion": "Sabes perfectamente cómo va a terminar la noche, pero vas igual."
+  },
+  {
+    "nombre": "Último Aliento",
+    "categoria": "Los Reyes de la Bancarrota (Suerte y desgracia)",
+    "descripcion": "Esa jugada desesperada que, inexplicablemente, sale bien."
+  },
+  {
+    "nombre": "As Asustado",
+    "categoria": "Absurdos y Descolocantes (Para romper la mente del rival)",
+    "descripcion": "La mejor carta del juego, pero con miedo de salir a la mesa."
+  },
+  {
+    "nombre": "Crupier Confuso",
+    "categoria": "Absurdos y Descolocantes (Para romper la mente del rival)",
+    "descripcion": "El que reparte las cartas de forma caótica pero con mucho estilo."
+  },
+  {
+    "nombre": "Fichas Voladoras",
+    "categoria": "Absurdos y Descolocantes (Para romper la mente del rival)",
+    "descripcion": "Porque sabes que alguien va a tirar la mesa cuando pierda."
+  },
+  {
+    "nombre": "Póker Mutante",
+    "categoria": "Absurdos y Descolocantes (Para romper la mente del rival)",
+    "descripcion": "Una combinación de cartas que desafía las leyes de la lógica."
+  },
+  {
+    "nombre": "Mapache Mentiroso",
+    "categoria": "Los del Farol y la Mentira",
+    "descripcion": "El que siempre tiene una carta escondida (o eso te hace creer)."
+  },
+  {
+    "nombre": "Camaleón Confuso",
+    "categoria": "Los del Farol y la Mentira",
+    "descripcion": "Cambia de estrategia a cada segundo y ni él mismo sabe qué está jugando."
+  },
+  {
+    "nombre": "Zorro Lento",
+    "categoria": "Los del Farol y la Mentira",
+    "descripcion": "Intenta ser astuto y planear una gran jugada, pero tarda tres horas por turno."
+  },
+  {
+    "nombre": "Pato Asustado",
+    "categoria": "Los del Farol y la Mentira",
+    "descripcion": "Se retira de la ronda a la menor provocación."
+  },
+  {
+    "nombre": "Mono Tramposo",
+    "categoria": "Los \"Mafiosos\" de la Mesa",
+    "descripcion": "El clásico que distrae a todos para intentar mirar las cartas del resto."
+  },
+  {
+    "nombre": "Hámster Mafioso",
+    "categoria": "Los \"Mafiosos\" de la Mesa",
+    "descripcion": "Parece tierno e inofensivo, pero te va quitando las fichas de poco en poco."
+  },
+  {
+    "nombre": "Tiburón Pelado",
+    "categoria": "Los \"Mafiosos\" de la Mesa",
+    "descripcion": "Tiene toda la actitud de un profesional del póker, pero ya no le queda ni una ficha."
+  },
+  {
+    "nombre": "Llama Dramática",
+    "categoria": "Los \"Mafiosos\" de la Mesa",
+    "descripcion": "Hace un escándalo y suspiros teatrales cada vez que le reparten cartas."
+  },
+  {
+    "nombre": "Cerdo Suertudo",
+    "categoria": "Los de la Suerte y la Desgracia",
+    "descripcion": "Ese jugador al que inexplicablemente siempre le sale una combinación ganadora en el último segundo."
+  },
+  {
+    "nombre": "Gato Ciego",
+    "categoria": "Los de la Suerte y la Desgracia",
+    "descripcion": "El que va con todo (\"All-in\") sin haber mirado siquiera qué cartas le tocaron."
+  },
+  {
+    "nombre": "Burro Millonario",
+    "categoria": "Los de la Suerte y la Desgracia",
+    "descripcion": "No se sabe cómo, pero gana las rondas cometiendo los peores errores posibles."
+  },
+  {
+    "nombre": "Oso Arruinado",
+    "categoria": "Los de la Suerte y la Desgracia",
+    "descripcion": "El que empezó la noche como el rey de la selva y ahora tiene que pedir fichas prestadas."
+  },
+  {
+    "nombre": "Paloma Despistada",
+    "categoria": "Los Absurdos",
+    "descripcion": "Nunca sabe cuándo es su turno ni qué juego están jugando."
+  },
+  {
+    "nombre": "Perezoso Acelerado",
+    "categoria": "Los Absurdos",
+    "descripcion": "El que se pone hipernervioso y quiere que la ronda termine ya."
+  },
+  {
+    "nombre": "Koala Tahúr",
+    "categoria": "Los Absurdos",
+    "descripcion": "Tiene cara de bueno y de estar medio dormido, pero te despluma en un parpadeo."
+  },
+  {
+    "nombre": "Gato Sala'o",
+    "categoria": "Los Picados y Salados (La mala racha)",
+    "descripcion": "El que tiene la peor suerte de la mesa; no le sale una buena carta ni de juego."
+  },
+  {
+    "nombre": "Perro Pica'o",
+    "categoria": "Los Picados y Salados (La mala racha)",
+    "descripcion": "Pierde una ronda y ya quiere armar un drama o cambiar las reglas."
+  },
+  {
+    "nombre": "Chigüire Limpio",
+    "categoria": "Los Picados y Salados (La mala racha)",
+    "descripcion": "El que se quedó sin una sola ficha antes de la mitad de la partida."
+  },
+  {
+    "nombre": "Gallo Mamando",
+    "categoria": "Los Picados y Salados (La mala racha)",
+    "descripcion": "El estado máximo de bancarrota en la mesa, jugando ya con fichas prestadas."
+  },
+  {
+    "nombre": "Zorro Guisador",
+    "categoria": "Los Vivos y Guisadores (Estrategia y engaño)",
+    "descripcion": "El que siempre está cuadrando un negocio raro con sus cartas o intentando hacer trampa fina."
+  },
+  {
+    "nombre": "Mono Avispa'o",
+    "categoria": "Los Vivos y Guisadores (Estrategia y engaño)",
+    "descripcion": "El típico que está despierto, pendiente de los descartes de los demás y no se le pasa una."
+  },
+  {
+    "nombre": "Caimán Caretabla",
+    "categoria": "Los Vivos y Guisadores (Estrategia y engaño)",
+    "descripcion": "Miente con la cara más lavada del mundo. Te mete un farol gigante sin parpadear."
+  },
+  {
+    "nombre": "Zamuro Pendiente",
+    "categoria": "Los Vivos y Guisadores (Estrategia y engaño)",
+    "descripcion": "No se mete en los peos de nadie, solo está esperando que los demás se desgasten para caerle encima al botín."
+  },
+  {
+    "nombre": "Burro Gafo",
+    "categoria": "Los Ponchados y Chalequeadores (Puro vacilón)",
+    "descripcion": "No entiende bien la jugada, confunde los turnos, pero inexplicablemente termina ganando."
+  },
+  {
+    "nombre": "Loro Hablador",
+    "categoria": "Los Ponchados y Chalequeadores (Puro vacilón)",
+    "descripcion": "No gana ni una mano, pero cómo echa broma y distrae a toda la mesa durante la partida."
+  },
+  {
+    "nombre": "Tigre Chimbo",
+    "categoria": "Los Ponchados y Chalequeadores (Puro vacilón)",
+    "descripcion": "Mucho diseño de gángster, mucha actitud de película, pero a la hora de la verdad no asusta a nadie."
+  },
+  {
+    "nombre": "Culebra Paba",
+    "categoria": "Los Ponchados y Chalequeadores (Puro vacilón)",
+    "descripcion": "El jugador que apenas se sienta en la mesa, le contagia la mala suerte a los que tiene al lado."
+  },
+  {
+    "nombre": "Caraotas con Azucar",
+    "categoria": "Los Ponchados y Chalequeadores (Puro vacilón)",
+    "descripcion": "Casi nadie lo quiere, pocos lo entienden, todos lo juzgan."
+  }
+]

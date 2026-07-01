@@ -76,7 +76,7 @@ const genEstadoFinalizada: fc.Arbitrary<EstadoPartida> = fc
  * rango de Jugadores generados para que las acciones sean plausibles.
  */
 const genAccion: fc.Arbitrary<Accion> = fc.oneof(
-  fc.constant<Accion>({ tipo: 'AVANZAR' }),
+  fc.integer({ min: 0, max: 5 }).map((j): Accion => ({ tipo: 'CONFIRMAR', jugadorId: `j${j}` })),
   fc.constant<Accion>({ tipo: 'RESOLVER_SHOWDOWN' }),
   fc.record({ jugador: fc.integer({ min: 0, max: 5 }), ficha: genFicha }).map(
     ({ jugador, ficha }): Accion => ({

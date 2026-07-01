@@ -19,8 +19,10 @@
 //
 // _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-import { comparar, evaluar } from './evaluador';
+import { comparar, compararSinKickers, evaluar } from './evaluador';
 import type {
+  AjustesPartida,
+  Carta,
   EstadoFichas,
   EstadoGolpe,
   Jugador,
@@ -95,6 +97,7 @@ type ManoEntrada = EstadoGolpe['comunitarias'];
  *
  * @param jugadores Jugadores de la Partida (cada uno con sus Cartas de Bolsillo).
  * @param golpe Estado del Golpe en curso (Comunitarias y estado de Fichas).
+ * @param ajustes Ajustes opcionales del modo de juego.
  * @returns El {@link ResultadoShowdown} con el orden, el éxito y la violación.
  * @throws {Error} Si algún Jugador carece de Ficha roja o de cartas suficientes.
  * _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
@@ -102,6 +105,7 @@ type ManoEntrada = EstadoGolpe['comunitarias'];
 export function resolverShowdown(
   jugadores: readonly Jugador[],
   golpe: EstadoGolpe,
+  ajustes?: AjustesPartida,
 ): ResultadoShowdown {
   // 1. Para cada Jugador: estrellas de su Ficha roja y su mejor mano evaluada.
   const posiciones: PosicionShowdown[] = jugadores.map((jugador) => ({
@@ -115,6 +119,17 @@ export function resolverShowdown(
     (a, b) => a.estrellasRojas - b.estrellasRojas,
   );
 
+  // Construir mapa de bolsillos si usamos sinKickers.
+  const usarSinKickers = ajustes?.sinKickers === true;
+  const bolsillosPorId: Record<string, [Carta, Carta]> = {};
+  if (usarSinKickers) {
+    for (const jugador of jugadores) {
+      if (jugador.bolsillo) {
+        bolsillosPorId[jugador.id] = jugador.bolsillo;
+      }
+    }
+  }
+
   // 3. Recorrer pares consecutivos: el posterior debe tener fuerza >= que el
   //    anterior. La primera violación (posterior más débil) declara el fracaso.
   //    Un Empate_Verdadero (comparar === 0) satisface la condición, por lo que
@@ -124,7 +139,20 @@ export function resolverShowdown(
   for (let i = 0; i + 1 < orden.length; i++) {
     const anterior = orden[i]!;
     const posterior = orden[i + 1]!;
-    if (comparar(posterior.mano, anterior.mano) < 0) {
+
+    let cmp: number;
+    if (usarSinKickers) {
+      cmp = compararSinKickers(
+        posterior.mano,
+        anterior.mano,
+        bolsillosPorId[posterior.jugadorId]!,
+        bolsillosPorId[anterior.jugadorId]!,
+      );
+    } else {
+      cmp = comparar(posterior.mano, anterior.mano);
+    }
+
+    if (cmp < 0) {
       exito = false;
       violacion = { anterior: anterior.jugadorId, posterior: posterior.jugadorId };
       break;

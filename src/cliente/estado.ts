@@ -13,6 +13,14 @@ import type { VistaPartida } from './protocolo';
 /** Estado del canal con el Servidor_Local. */
 export type EstadoConexion = 'CONECTANDO' | 'CONECTADO' | 'DESCONECTADO';
 
+/** Alias elegido antes de unirse (sorteo o manual). */
+export interface AliasElegido {
+  nombre: string;
+  descripcion: string | null;
+  categoria: string | null;
+  esManual: boolean;
+}
+
 /** Estado completo del cliente que la interfaz renderiza. */
 export interface EstadoCliente {
   /** Estado actual de la conexión WebSocket. */
@@ -21,8 +29,14 @@ export interface EstadoCliente {
   vista: VistaPartida | null;
   /** Último mensaje de error recibido (en español), o null si no hay. */
   error: string | null;
-  /** Borrador del nombre que el Jugador escribe en el Lobby (1..20). */
+  /** Borrador del nombre en modo manual (1..20). */
   nombreBorrador: string;
+  /** Borrador de la descripción en modo manual (opcional). */
+  descripcionBorrador: string;
+  /** Alias confirmado para unirse (sorteo o manual). */
+  aliasElegido: AliasElegido | null;
+  /** Modo de entrada usado al enviar UNIRSE (interno). */
+  modoUnirse: 'JUGADOR' | 'ESPECTADOR';
 }
 
 /** Función suscriptora que se invoca tras cada cambio de estado. */
@@ -38,6 +52,9 @@ export class StoreCliente {
     vista: null,
     error: null,
     nombreBorrador: '',
+    descripcionBorrador: '',
+    aliasElegido: null,
+    modoUnirse: 'JUGADOR',
   };
   readonly #suscriptores = new Set<Suscriptor>();
 
@@ -66,6 +83,11 @@ export class StoreCliente {
    */
   fijarNombreBorrador(nombre: string): void {
     this.#estado = { ...this.#estado, nombreBorrador: nombre };
+  }
+
+  /** Actualiza el borrador de descripción sin notificar (modo manual). */
+  fijarDescripcionBorrador(descripcion: string): void {
+    this.#estado = { ...this.#estado, descripcionBorrador: descripcion };
   }
 
   /** Registra la nueva vista recibida del servidor y limpia el error previo. */
@@ -97,8 +119,58 @@ export class StoreCliente {
 /** ¿Está el Jugador local ya registrado en la lista de la Partida? */
 export function jugadorRegistrado(estado: EstadoCliente): boolean {
   const vista = estado.vista;
-  if (vista === null) {
+  if (vista === null || vista.esEspectador) {
     return false;
   }
   return vista.jugadores.some((j) => j.id === vista.perspectivaJugadorId);
+}
+
+/** ¿Está el cliente registrado como espectador? */
+export function espectadorRegistrado(estado: EstadoCliente): boolean {
+  return estado.vista?.esEspectador ?? false;
+}
+
+/** ¿Está registrado como jugador o espectador? */
+export function participanteRegistrado(estado: EstadoCliente): boolean {
+  return jugadorRegistrado(estado) || espectadorRegistrado(estado);
+}
+
+const NOMBRE_MIN = 1;
+const NOMBRE_MAX = 20;
+export const DESCRIPCION_MAX = 120;
+
+function descripcionNormalizada(texto: string | null | undefined): string | undefined {
+  const recortada = (texto ?? '').trim();
+  return recortada.length > 0 ? recortada : undefined;
+}
+
+/** Indica si hay un alias válido listo para enviar al servidor. */
+export function tieneNombreValido(estado: EstadoCliente): boolean {
+  if (estado.aliasElegido !== null && !estado.aliasElegido.esManual) {
+    const nombre = estado.aliasElegido.nombre.trim();
+    return nombre.length >= NOMBRE_MIN && nombre.length <= NOMBRE_MAX;
+  }
+  const nombre = estado.nombreBorrador.trim();
+  return nombre.length >= NOMBRE_MIN && nombre.length <= NOMBRE_MAX;
+}
+
+/** Descripción opcional para enviar al unirse. */
+export function descripcionParaUnirse(estado: EstadoCliente): string | undefined {
+  if (estado.aliasElegido !== null && !estado.aliasElegido.esManual) {
+    return descripcionNormalizada(estado.aliasElegido.descripcion);
+  }
+  return descripcionNormalizada(estado.descripcionBorrador);
+}
+
+/** Indica si la descripción manual supera el límite permitido. */
+export function descripcionManualValida(estado: EstadoCliente): boolean {
+  return estado.descripcionBorrador.trim().length <= DESCRIPCION_MAX;
+}
+
+/** Nombre efectivo para unirse (alias sorteado o borrador manual). */
+export function nombreParaUnirse(estado: EstadoCliente): string {
+  if (estado.aliasElegido !== null && !estado.aliasElegido.esManual) {
+    return estado.aliasElegido.nombre.trim();
+  }
+  return estado.nombreBorrador.trim();
 }

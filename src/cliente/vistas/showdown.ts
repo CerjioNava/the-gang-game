@@ -18,6 +18,8 @@
 import { evaluar, type ManoEvaluada } from '../../dominio';
 import { BOLSILLO_OCULTO, type VistaGolpe } from '../../dominio/proyeccion';
 import type { Carta, JugadorVisible, Palo, VistaPartida } from '../protocolo';
+import { estatusJugadorHtml } from './estatusJugador';
+import { nombreConTooltipHtml } from './tooltipNombre';
 import { NOMBRE_CATEGORIA } from './ranking';
 
 // ===========================================================================
@@ -167,7 +169,7 @@ function filaShowdownHtml(
   return `
     <li class="showdown__jugador">
       <div class="showdown__cabecera">
-        <span class="showdown__nombre">${escapar(jugador.nombre)}</span>
+        <span class="showdown__nombre">${estatusJugadorHtml(jugador.conectado)}<span class="showdown__alias">${nombreConTooltipHtml(jugador.nombre, jugador.descripcion)}</span></span>
         <span class="ficha ficha--rojo" title="Ficha roja de ${estrellasRojas} estrellas">
           ${estrellas(estrellasRojas)}
         </span>

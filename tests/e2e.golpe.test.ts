@@ -256,8 +256,10 @@ describe('E2E: un Golpe completo con tres clientes WebSocket', () => {
           );
         }
 
-        // Un cliente avanza; todos deben ver la transición de Ronda.
-        clientes[0]!.enviar('AVANZAR');
+        // Un cliente avanza; necesitamos que TODOS confirmen para que la ronda avance.
+        for (const cliente of clientes) {
+          cliente.enviar('AVANZAR');
+        }
         await Promise.all(
           clientes.map((c, i) =>
             c.esperarEstado(

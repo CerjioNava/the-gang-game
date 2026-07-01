@@ -314,11 +314,81 @@ export function esEmpateVerdadero(a: ManoEvaluada, b: ManoEvaluada): boolean {
   return comparar(a, b) === 0;
 }
 
+// ===========================================================================
+// Comparación "Sin Kickers" (desempate por cartas de bolsillo)
+// ===========================================================================
+
+/**
+ * Compara dos manos evaluadas usando la regla "Sin Kickers".
+ *
+ * Cuando esta regla está activa y dos manos empatan en categoría Y en el valor
+ * de la categoría (el primer diferenciador tras la categoría en ranks), en vez
+ * de comparar los kickers de la mejor mano de 5, se comparan las cartas de
+ * bolsillo de cada jugador en orden descendente de valor:
+ *
+ * 1. Se compara la categoría (ranks[0]). Si difieren, devuelve la diferencia.
+ * 2. Se compara el valor de la categoría (ranks[1]). Si difieren, lo usa.
+ * 3. Si empatan en ambos, se ordenan los bolsillos por valor descendente y se
+ *    comparan: primero la carta más alta de cada bolsillo, luego la más baja.
+ * 4. Si todo empata → 0 (Empate Verdadero).
+ *
+ * El palo NO cuenta para el desempate.
+ *
+ * @param a Mano evaluada del jugador A.
+ * @param b Mano evaluada del jugador B.
+ * @param bolsilloA Las dos cartas de bolsillo del jugador A.
+ * @param bolsilloB Las dos cartas de bolsillo del jugador B.
+ * @returns Negativo si A es más débil, positivo si A es más fuerte, 0 si empate.
+ */
+export function compararSinKickers(
+  a: ManoEvaluada,
+  b: ManoEvaluada,
+  bolsilloA: [Carta, Carta],
+  bolsilloB: [Carta, Carta],
+): number {
+  // 1. Comparar categoría.
+  if (a.ranks[0] !== b.ranks[0]) {
+    return a.ranks[0]! - b.ranks[0]!;
+  }
+
+  // 2. Comparar valor de la categoría (primer valor tras la categoría en ranks).
+  const valorCatA = a.ranks[1] ?? 0;
+  const valorCatB = b.ranks[1] ?? 0;
+  if (valorCatA !== valorCatB) {
+    return valorCatA - valorCatB;
+  }
+
+  // 3. Empatan en categoría y valor de categoría → comparar bolsillos.
+  const [altaA, bajaA] = ordenarBolsillo(bolsilloA);
+  const [altaB, bajaB] = ordenarBolsillo(bolsilloB);
+
+  if (altaA !== altaB) {
+    return altaA - altaB;
+  }
+  if (bajaA !== bajaB) {
+    return bajaA - bajaB;
+  }
+
+  // 4. Empate Verdadero.
+  return 0;
+}
+
+/**
+ * Ordena un par de cartas de bolsillo por valor descendente y devuelve los
+ * valores como tupla [alta, baja].
+ */
+function ordenarBolsillo(bolsillo: [Carta, Carta]): [number, number] {
+  const v0 = bolsillo[0].valor;
+  const v1 = bolsillo[1].valor;
+  return v0 >= v1 ? [v0, v1] : [v1, v0];
+}
+
 /** Componente Evaluador_Manos expuesto como agrupación de funciones puras. */
 export const EvaluadorManos = {
   evaluar,
   clasificarCinco,
   compararRanks,
   comparar,
+  compararSinKickers,
   esEmpateVerdadero,
 } as const;

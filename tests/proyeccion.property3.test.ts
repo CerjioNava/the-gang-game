@@ -53,10 +53,13 @@ describe('Property 3: Revelado de bolsillos en el Showdown', () => {
             estado = resultado.estado;
           });
 
-          const avance = aplicarAccion(estado, { tipo: 'AVANZAR' });
-          expect(avance.ok).toBe(true);
-          if (!avance.ok) return;
-          estado = avance.estado;
+          // Todos los jugadores confirman su ficha para avanzar de ronda.
+          for (const jugador of estado.jugadores) {
+            const confirmacion = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: jugador.id });
+            expect(confirmacion.ok).toBe(true);
+            if (!confirmacion.ok) return;
+            estado = confirmacion.estado;
+          }
         }
 
         // El Golpe está ahora en SHOWDOWN.

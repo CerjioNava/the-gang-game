@@ -13,9 +13,14 @@ import {
   mensajes,
   type MensajeServidor,
 } from './protocolo';
-import { StoreCliente, type EstadoCliente } from './estado';
+import { StoreCliente, descripcionParaUnirse, descripcionManualValida, nombreParaUnirse, participanteRegistrado, tieneNombreValido, DESCRIPCION_MAX, type EstadoCliente } from './estado';
+import { elegirAliasAlAzar } from './datos/nombresAzar';
 import { ConexionServidor, construirUrlWebSocket } from './ws';
-import { renderizarLobby, type AccionesLobby } from './vistas/lobby';
+import {
+  renderizarEntradaEspectador,
+  renderizarLobby,
+  type AccionesLobby,
+} from './vistas/lobby';
 import { renderizarMesa, type AccionesMesa } from './vistas/mesa';
 import { renderizarShowdown, renderizarResultado } from './vistas/showdown';
 import { montarRanking } from './vistas/ranking';
@@ -64,20 +69,80 @@ const accionesLobby: AccionesLobby = {
   cambiarNombre(nombre: string) {
     store.fijarNombreBorrador(nombre);
   },
-  unirse() {
-    const nombre = store.obtener().nombreBorrador.trim();
-    if (nombre.length < NOMBRE_MIN || nombre.length > NOMBRE_MAX) {
-      store.recibirError(
-        `El alias debe tener entre ${NOMBRE_MIN} y ${NOMBRE_MAX} caracteres.`,
-      );
+  cambiarDescripcion(descripcion: string) {
+    store.fijarDescripcionBorrador(descripcion);
+  },
+  sacarAliasAlAzar() {
+    const vista = store.obtener().vista;
+    const usados = new Set<string>();
+    for (const j of vista?.jugadores ?? []) {
+      usados.add(j.nombre);
+    }
+    for (const e of vista?.espectadores ?? []) {
+      usados.add(e.nombre);
+    }
+    const alias = elegirAliasAlAzar(usados);
+    store.actualizar({
+      aliasElegido: {
+        nombre: alias.nombre,
+        descripcion: alias.descripcion,
+        categoria: alias.categoria,
+        esManual: false,
+      },
+      nombreBorrador: alias.nombre,
+      error: null,
+    });
+  },
+  activarAliasManual() {
+    store.actualizar({
+      aliasElegido: {
+        nombre: store.obtener().nombreBorrador.trim(),
+        descripcion: null,
+        categoria: null,
+        esManual: true,
+      },
+      error: null,
+    });
+  },
+  unirseComoJugador() {
+    if (!enviarUnirse('JUGADOR')) {
       return;
     }
-    conexion.enviar(mensajes.unirse(nombre));
+  },
+  unirseComoEspectador() {
+    if (!enviarUnirse('ESPECTADOR')) {
+      return;
+    }
   },
   iniciar() {
     conexion.enviar(mensajes.iniciar());
   },
+  expulsarMiembro(jugadorId: string) {
+    conexion.enviar(mensajes.expulsarMiembro(jugadorId));
+  },
+  configurarAjustes(ajustes: { sinKickers: boolean }) {
+    conexion.enviar(mensajes.configurarAjustes(ajustes));
+  },
 };
+
+function enviarUnirse(modo: 'JUGADOR' | 'ESPECTADOR'): boolean {
+  const estado = store.obtener();
+  if (!tieneNombreValido(estado)) {
+    store.recibirError(
+      `El alias debe tener entre ${NOMBRE_MIN} y ${NOMBRE_MAX} caracteres.`,
+    );
+    return false;
+  }
+  if (!descripcionManualValida(estado)) {
+    store.recibirError(`La descripción no puede superar ${DESCRIPCION_MAX} caracteres.`);
+    return false;
+  }
+  const nombre = nombreParaUnirse(estado);
+  const descripcion = descripcionParaUnirse(estado);
+  store.actualizar({ modoUnirse: modo, error: null });
+  conexion.enviar(mensajes.unirse(nombre, modo, descripcion));
+  return true;
+}
 
 // ===========================================================================
 // Acciones de la mesa de juego (fase EN_CURSO)
@@ -142,36 +207,40 @@ function render(estado: EstadoCliente): void {
   const cuerpo = document.createElement('div');
   cuerpo.className = 'app__cuerpo';
 
-  const fase = estado.vista?.fase ?? 'LOBBY';
-  switch (fase) {
-    case 'LOBBY':
-      renderizarLobby(cuerpo, estado, accionesLobby);
-      break;
-    case 'EN_CURSO': {
-      // Mesa de juego: cartas, fichas y acciones (tarea 16.2).
-      renderizarMesa(cuerpo, estado, accionesMesa);
-      // En el Showdown se añade, debajo de la mesa, el revelado de manos en el
-      // orden de las Fichas rojas (tarea 16.3, criterio 8.2).
-      if (estado.vista?.golpeActual?.ronda === 'SHOWDOWN') {
-        const seccionShowdown = document.createElement('div');
-        renderizarShowdown(seccionShowdown, estado.vista);
-        cuerpo.appendChild(seccionShowdown);
-      }
-      break;
+  const vista = estado.vista;
+  const fase = vista?.fase ?? 'LOBBY';
+  const registrado = participanteRegistrado(estado);
+
+  if (!registrado && fase !== 'LOBBY') {
+    if (fase === 'FINALIZADA') {
+      cuerpo.innerHTML = `
+        <section class="lobby lobby--espectador">
+          <h2>El golpe ha terminado</h2>
+          <p class="lobby__intro">Esta Partida ya finalizó. No es posible unirse como espectador.</p>
+        </section>`;
+    } else {
+      renderizarEntradaEspectador(cuerpo, estado, accionesLobby);
     }
-    case 'FINALIZADA':
-      // Pantalla de resultado final temática (tarea 16.3, criterio 9.3).
-      if (estado.vista !== null) {
-        renderizarResultado(cuerpo, estado.vista);
-      } else {
-        cuerpo.innerHTML = `
-          <section class="resultado">
-            <h2 class="resultado__titulo">El golpe ha terminado</h2>
-          </section>`;
-      }
-      break;
-    default:
-      cuerpo.innerHTML = '';
+  } else if (fase === 'LOBBY') {
+    renderizarLobby(cuerpo, estado, accionesLobby);
+  } else if (fase === 'EN_CURSO') {
+    renderizarMesa(cuerpo, estado, accionesMesa);
+    if (estado.vista?.golpeActual?.ronda === 'SHOWDOWN') {
+      const seccionShowdown = document.createElement('div');
+      renderizarShowdown(seccionShowdown, estado.vista);
+      cuerpo.appendChild(seccionShowdown);
+    }
+  } else if (fase === 'FINALIZADA') {
+    if (estado.vista !== null) {
+      renderizarResultado(cuerpo, estado.vista);
+    } else {
+      cuerpo.innerHTML = `
+        <section class="resultado">
+          <h2 class="resultado__titulo">El golpe ha terminado</h2>
+        </section>`;
+    }
+  } else {
+    cuerpo.innerHTML = '';
   }
 
   raiz!.innerHTML = cabecera;

@@ -41,9 +41,12 @@ function llevarAShowdown(estadoInicial: EstadoPartida): EstadoPartida {
       expect(resultado.ok).toBe(true);
       if (resultado.ok) estado = resultado.estado;
     });
-    const avance = aplicarAccion(estado, { tipo: 'AVANZAR' });
-    expect(avance.ok).toBe(true);
-    if (avance.ok) estado = avance.estado;
+    // Todos confirman para avanzar de ronda.
+    for (const jugador of estado.jugadores) {
+      const confirmacion = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: jugador.id });
+      expect(confirmacion.ok).toBe(true);
+      if (confirmacion.ok) estado = confirmacion.estado;
+    }
   }
   expect(estado.golpeActual!.ronda).toBe('SHOWDOWN');
   return estado;

@@ -6,7 +6,13 @@
 // Requirement 2 (Incorporación de jugadores a la partida).
 // _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-import { MAX_JUGADORES, MIN_JUGADORES, type ErrorJuego, type Jugador } from './modelos';
+import {
+  MAX_JUGADORES,
+  MIN_JUGADORES,
+  type ErrorJuego,
+  type Espectador,
+  type Jugador,
+} from './modelos';
 
 // ===========================================================================
 // Constantes del Lobby
@@ -16,6 +22,10 @@ import { MAX_JUGADORES, MIN_JUGADORES, type ErrorJuego, type Jugador } from './m
 export const NOMBRE_LONGITUD_MIN = 1;
 /** Longitud máxima de un nombre de Jugador (criterio 2.1). */
 export const NOMBRE_LONGITUD_MAX = 20;
+/** Aforo máximo de espectadores simultáneos. */
+export const MAX_ESPECTADORES = 20;
+/** Longitud máxima de la descripción de un alias. */
+export const DESCRIPCION_LONGITUD_MAX = 120;
 
 // ===========================================================================
 // Resultado del registro
@@ -50,6 +60,7 @@ export type ResultadoRegistro =
 export function validarNombre(
   nombre: string,
   jugadores: readonly Jugador[],
+  espectadores: readonly Espectador[] = [],
 ): ErrorJuego | null {
   if (typeof nombre !== 'string' || nombre.trim().length === 0) {
     return {
@@ -75,6 +86,40 @@ export function validarNombre(
     };
   }
 
+  if (espectadores.some((e) => e.nombre === nombre)) {
+    return {
+      codigo: 'NOMBRE_INVALIDO',
+      mensaje: 'Ese alias ya lo usa otro espectador.',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Normaliza una descripción opcional: recorta espacios y devuelve undefined si queda vacía.
+ */
+export function normalizarDescripcion(descripcion: string | undefined): string | undefined {
+  if (descripcion === undefined) {
+    return undefined;
+  }
+  const recortada = descripcion.trim();
+  return recortada.length > 0 ? recortada : undefined;
+}
+
+/**
+ * Valida la descripción opcional de un alias.
+ */
+export function validarDescripcion(descripcion: string | undefined): ErrorJuego | null {
+  if (descripcion === undefined) {
+    return null;
+  }
+  if (descripcion.length > DESCRIPCION_LONGITUD_MAX) {
+    return {
+      codigo: 'NOMBRE_INVALIDO',
+      mensaje: `La descripción no puede superar ${DESCRIPCION_LONGITUD_MAX} caracteres.`,
+    };
+  }
   return null;
 }
 
@@ -98,6 +143,8 @@ export function registrarJugador(
   jugadores: readonly Jugador[],
   nombre: string,
   id: string,
+  espectadores: readonly Espectador[] = [],
+  descripcion?: string,
 ): ResultadoRegistro {
   if (jugadores.length >= MAX_JUGADORES) {
     return {
@@ -109,12 +156,23 @@ export function registrarJugador(
     };
   }
 
-  const errorNombre = validarNombre(nombre, jugadores);
+  const errorNombre = validarNombre(nombre, jugadores, espectadores);
   if (errorNombre !== null) {
     return { ok: false, error: errorNombre };
   }
 
-  const nuevo: Jugador = { id, nombre, bolsillo: null };
+  const descripcionNorm = normalizarDescripcion(descripcion);
+  const errorDescripcion = validarDescripcion(descripcionNorm);
+  if (errorDescripcion !== null) {
+    return { ok: false, error: errorDescripcion };
+  }
+
+  const nuevo: Jugador = {
+    id,
+    nombre,
+    bolsillo: null,
+    ...(descripcionNorm !== undefined ? { descripcion: descripcionNorm } : {}),
+  };
   return { ok: true, jugadores: [...jugadores, nuevo] };
 }
 
@@ -130,6 +188,62 @@ export function abandonarJugador(
   jugadorId: string,
 ): Jugador[] {
   return jugadores.filter((j) => j.id !== jugadorId);
+}
+
+/**
+ * Resultado de registrar un espectador.
+ */
+export type ResultadoRegistroEspectador =
+  | { ok: true; espectadores: Espectador[] }
+  | { ok: false; error: ErrorJuego };
+
+/**
+ * Registra un espectador que observa la Partida sin jugar.
+ */
+export function registrarEspectador(
+  espectadores: readonly Espectador[],
+  jugadores: readonly Jugador[],
+  nombre: string,
+  id: string,
+  descripcion?: string,
+): ResultadoRegistroEspectador {
+  if (espectadores.length >= MAX_ESPECTADORES) {
+    return {
+      ok: false,
+      error: {
+        codigo: 'PARTIDA_COMPLETA',
+        mensaje: 'No caben más espectadores en esta Partida.',
+      },
+    };
+  }
+
+  const errorNombre = validarNombre(nombre, jugadores, espectadores);
+  if (errorNombre !== null) {
+    return { ok: false, error: errorNombre };
+  }
+
+  const descripcionNorm = normalizarDescripcion(descripcion);
+  const errorDescripcion = validarDescripcion(descripcionNorm);
+  if (errorDescripcion !== null) {
+    return { ok: false, error: errorDescripcion };
+  }
+
+  const nuevo: Espectador = {
+    id,
+    nombre,
+    ...(descripcionNorm !== undefined ? { descripcion: descripcionNorm } : {}),
+  };
+  return { ok: true, espectadores: [...espectadores, nuevo] };
+}
+
+/**
+ * Elimina un espectador de la lista (abandono o expulsión).
+ */
+export function abandonarEspectador(
+  espectadores: readonly Espectador[],
+  espectadorId: string,
+): Espectador[] {
+  return espectadores.filter((e) => e.id !== espectadorId);
 }
 
 // ===========================================================================
@@ -160,4 +274,50 @@ export function validarInicio(jugadores: readonly Jugador[]): ErrorJuego | null 
     };
   }
   return null;
+}
+
+/**
+ * Indica si todos los Jugadores registrados tienen conexión activa. Los ids que
+ * no aparecen en el mapa se consideran desconectados.
+ */
+export function todosConectados(
+  jugadores: readonly Jugador[],
+  conexionPorJugador: ReadonlyMap<string, boolean>,
+): boolean {
+  return jugadores.every((j) => conexionPorJugador.get(j.id) === true);
+}
+
+/**
+ * Valida que se pueda iniciar la Partida: número mínimo de Jugadores y que
+ * todos estén conectados al Servidor_Local.
+ */
+export function validarInicioConConectividad(
+  jugadores: readonly Jugador[],
+  conexionPorJugador: ReadonlyMap<string, boolean>,
+): ErrorJuego | null {
+  const errorBase = validarInicio(jugadores);
+  if (errorBase !== null) {
+    return errorBase;
+  }
+
+  const offline = jugadores.find((j) => conexionPorJugador.get(j.id) !== true);
+  if (offline !== undefined) {
+    return {
+      codigo: 'JUGADOR_DESCONECTADO',
+      mensaje: `${offline.nombre} está desconectado; todos deben estar activos para dar el golpe.`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Indica si la Partida puede iniciarse: aforo válido y todos los miembros
+ * conectados.
+ */
+export function puedeIniciarCompleto(
+  jugadores: readonly Jugador[],
+  conexionPorJugador: ReadonlyMap<string, boolean>,
+): boolean {
+  return puedeIniciar(jugadores) && todosConectados(jugadores, conexionPorJugador);
 }

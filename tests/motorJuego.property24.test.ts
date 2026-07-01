@@ -91,6 +91,7 @@ const genEstadoShowdown: fc.Arbitrary<EstadoPartida> = genN.chain((n) => {
       baraja: [],
       comunitarias,
       fichas,
+      confirmados: [],
     };
 
     const estado: EstadoPartida = {

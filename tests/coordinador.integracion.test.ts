@@ -114,8 +114,18 @@ function montarBanco(): Banco {
   const difusor = crearDifusor(conexiones, gestor, coordinador);
 
   const enviar = (jugadorId: string, mensaje: MensajeEntrante): ResultadoCoordinador => {
-    const resultado = coordinador.procesarMensaje(jugadorId, mensaje);
+    const conexionPorJugador = new Map(
+      gestor.sesiones().map((s) => [s.sessionId, s.conectado]),
+    );
+    const resultado = coordinador.procesarMensaje(jugadorId, mensaje, {
+      conexionPorJugador,
+    });
     if (resultado.clase === 'DIFUNDIR') {
+      if (resultado.sesionesARetirar !== undefined) {
+        for (const sessionId of resultado.sesionesARetirar) {
+          gestor.retirarSesion(sessionId);
+        }
+      }
       difusor.difundir();
     }
     return resultado;
@@ -259,6 +269,112 @@ describe('Integración Coordinador + Difusor: INICIAR y toma de Fichas difunden 
       (f) => f.color === 'BLANCO',
     );
     expect(blancasEnCentro).toEqual([]);
+  });
+});
+
+describe('Integración Coordinador + Difusor: estado de conexión visible en la vista', () => {
+  /** Registra la Partida en el gestor (como hace la capa de aplicación al iniciar). */
+  function sincronizarPartida(banco: Banco): void {
+    const estado = banco.coordinador.obtenerEstado();
+    if (estado.fase === 'LOBBY') {
+      return;
+    }
+    if (banco.gestor.obtenerPartida() === null) {
+      banco.gestor.crearPartida(estado);
+    } else {
+      banco.gestor.actualizarPartida(estado);
+    }
+  }
+
+  it('en el Lobby, al desconectar un Jugador los demás ven conectado=false', () => {
+    const banco = montarBanco();
+    unirTodos(banco);
+
+    const desconectado = banco.jugadores[1]!;
+    banco.gestor.desconectar(desconectado.conexionId);
+    banco.difundir();
+
+    const vista = ultimaVista(banco.jugadores[0]!.conexion);
+    expect(vista.fase).toBe('LOBBY');
+    expect(vista.jugadores).toHaveLength(3);
+    const jv = vista.jugadores.find((j) => j.id === desconectado.jugadorId);
+    expect(jv?.conectado).toBe(false);
+  });
+
+  it('INICIAR se rechaza si algún miembro está desconectado', () => {
+    const banco = montarBanco();
+    unirTodos(banco);
+
+    banco.gestor.desconectar(banco.jugadores[1]!.conexionId);
+
+    const resultado = banco.enviar(banco.jugadores[0]!.jugadorId, {
+      tipo: MensajeCliente.INICIAR,
+    });
+    expect(resultado.clase).toBe('ERROR');
+    if (resultado.clase !== 'ERROR') return;
+    expect(resultado.error.codigo).toBe('JUGADOR_DESCONECTADO');
+    expect(banco.coordinador.obtenerEstado().fase).toBe('LOBBY');
+  });
+
+  it('el anfitrión puede expulsar a un miembro desconectado', () => {
+    const banco = montarBanco();
+    unirTodos(banco);
+
+    const expulsado = banco.jugadores[2]!;
+    banco.gestor.desconectar(expulsado.conexionId);
+
+    const resultado = banco.enviar(banco.jugadores[0]!.jugadorId, {
+      tipo: MensajeCliente.EXPULSAR,
+      payload: { jugadorId: expulsado.jugadorId },
+    });
+    expect(resultado.clase).toBe('DIFUNDIR');
+
+    const vista = ultimaVista(banco.jugadores[0]!.conexion);
+    expect(vista.jugadores).toHaveLength(2);
+    expect(vista.jugadores.some((j) => j.id === expulsado.jugadorId)).toBe(false);
+  });
+
+  it('al desconectar un Jugador durante la Partida, los demás ven conectado=false', () => {
+    const banco = montarBanco();
+    unirTodos(banco);
+    banco.enviar(banco.jugadores[0]!.jugadorId, { tipo: MensajeCliente.INICIAR });
+    sincronizarPartida(banco);
+
+    const desconectado = banco.jugadores[1]!;
+    banco.gestor.desconectar(desconectado.conexionId);
+    banco.difundir();
+
+    for (const observador of banco.jugadores) {
+      if (observador.jugadorId === desconectado.jugadorId) {
+        continue;
+      }
+      const vista = ultimaVista(observador.conexion);
+      const jv = vista.jugadores.find((j) => j.id === desconectado.jugadorId);
+      expect(jv?.conectado).toBe(false);
+    }
+  });
+
+  it('al reconectar un Jugador, los demás vuelven a ver conectado=true', () => {
+    const banco = montarBanco();
+    unirTodos(banco);
+    banco.enviar(banco.jugadores[0]!.jugadorId, { tipo: MensajeCliente.INICIAR });
+    sincronizarPartida(banco);
+
+    const jugador = banco.jugadores[1]!;
+    banco.gestor.desconectar(jugador.conexionId);
+    banco.difundir();
+
+    const nuevaConexionId = `${jugador.conexionId}-nueva`;
+    const reconexion = banco.gestor.conectar(jugador.nombre, nuevaConexionId);
+    expect(reconexion.ok).toBe(true);
+    if (!reconexion.ok) return;
+    expect(reconexion.esReconexion).toBe(true);
+
+    banco.difundir();
+
+    const vista = ultimaVista(banco.jugadores[0]!.conexion);
+    const jv = vista.jugadores.find((j) => j.id === jugador.jugadorId);
+    expect(jv?.conectado).toBe(true);
   });
 });
 

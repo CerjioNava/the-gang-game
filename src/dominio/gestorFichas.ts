@@ -255,17 +255,21 @@ export function intercambiarConCentro(
 }
 
 /**
- * Intercambia entre dos Jugadores sus Fichas del color indicado: cada uno queda
- * en posesión de la Ficha que antes tenía el otro.
+ * Intercambia con otro Jugador la Ficha del color indicado.
  *
- * Rechaza, conservando el estado, si alguno de los dos Jugadores no posee una
- * Ficha de ese color (`FICHA_NO_DISPONIBLE`).
+ * - Si ambos poseen una Ficha de ese color, se permutan (cada uno queda con la
+ *   del otro).
+ * - Si solo el otro Jugador la posee, el que actúa la toma y el otro queda sin
+ *   Ficha de ese color (deberá tomarla del centro o de otro compañero).
+ *
+ * Rechaza, conservando el estado, si el otro Jugador no posee una Ficha de ese
+ * color (`FICHA_NO_DISPONIBLE`).
  *
  * @param estado Estado actual de las Fichas (no se muta).
- * @param jugadorA Identificador del primer Jugador.
- * @param jugadorB Identificador del segundo Jugador.
- * @param color Color de las Fichas que se intercambian.
- * @returns Nuevo estado tras la permuta, o un error de juego.
+ * @param jugadorA Identificador del Jugador que actúa.
+ * @param jugadorB Identificador del otro Jugador.
+ * @param color Color de la Ficha involucrada.
+ * @returns Nuevo estado tras el intercambio o la toma, o un error de juego.
  * _Requirements: 6.4, 6.5_
  */
 export function intercambiarConJugador(
@@ -279,22 +283,30 @@ export function intercambiarConJugador(
   const indiceA = fichasA.findIndex((f) => f.color === color);
   const indiceB = fichasB.findIndex((f) => f.color === color);
 
-  if (indiceA === -1 || indiceB === -1) {
+  if (indiceB === -1) {
     return errorFichas(
       'FICHA_NO_DISPONIBLE',
-      'Alguno de los dos ya no tiene una ficha de este color para intercambiar.',
+      'Ese compañero ya no tiene una ficha de este color para intercambiar.',
     );
   }
 
   const porJugador = clonarPorJugador(estado);
   const propiasA = [...(porJugador[jugadorA] ?? [])];
   const propiasB = [...(porJugador[jugadorB] ?? [])];
-  const fichaA = propiasA[indiceA]!;
   const fichaB = propiasB[indiceB]!;
-  propiasA[indiceA] = fichaB;
-  propiasB[indiceB] = fichaA;
-  porJugador[jugadorA] = propiasA;
-  porJugador[jugadorB] = propiasB;
+
+  if (indiceA === -1) {
+    propiasB.splice(indiceB, 1);
+    propiasA.push(fichaB);
+    porJugador[jugadorA] = propiasA;
+    porJugador[jugadorB] = propiasB;
+  } else {
+    const fichaA = propiasA[indiceA]!;
+    propiasA[indiceA] = fichaB;
+    propiasB[indiceB] = fichaA;
+    porJugador[jugadorA] = propiasA;
+    porJugador[jugadorB] = propiasB;
+  }
 
   return { ok: true, estado: { ...estado, porJugador } };
 }

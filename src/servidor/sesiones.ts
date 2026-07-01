@@ -117,6 +117,11 @@ export interface GestorSesiones {
   obtenerSesionPorNombre(nombre: string): SesionJugador | null;
   /** Devuelve una copia de todas las sesiones registradas. */
   sesiones(): SesionJugador[];
+  /**
+   * Elimina por completo la sesión de un Jugador (p. ej. expulsión o abandono
+   * voluntario en el Lobby). No tiene efecto si la sesión no existe.
+   */
+  retirarSesion(sessionId: string): void;
 }
 
 // ===========================================================================
@@ -257,19 +262,34 @@ export function crearGestorSesiones(
       return null;
     }
 
-    // Mientras la Partida esté en curso, se preserva la sesión y el estado del
-    // Jugador; solo se marca como desconectada (criterio 1.6).
-    if (partida !== null && partida.fase === 'EN_CURSO') {
+    // En LOBBY o EN_CURSO se preserva la sesión para permitir reconexión
+    // (criterios 1.6, 1.7). Solo se marca como desconectada.
+    if (
+      partida === null ||
+      partida.fase === 'LOBBY' ||
+      partida.fase === 'EN_CURSO'
+    ) {
       sesion.conectado = false;
       sesion.conexionId = null;
       return copiar(sesion);
     }
 
-    // Sin Partida en curso (LOBBY o FINALIZADA): la sesión se retira por
-    // completo (abandono antes del inicio o limpieza tras finalizar).
+    // Partida FINALIZADA: la sesión se retira por completo.
     porSessionId.delete(sessionId);
     porNombre.delete(sesion.nombre);
     return copiar({ ...sesion, conectado: false, conexionId: null });
+  }
+
+  function retirarSesion(sessionId: string): void {
+    const sesion = porSessionId.get(sessionId);
+    if (sesion === undefined) {
+      return;
+    }
+    if (sesion.conexionId !== null) {
+      porConexion.delete(sesion.conexionId);
+    }
+    porSessionId.delete(sessionId);
+    porNombre.delete(sesion.nombre);
   }
 
   function obtenerSesion(sessionId: string): SesionJugador | null {
@@ -310,5 +330,6 @@ export function crearGestorSesiones(
     obtenerSesionPorConexion,
     obtenerSesionPorNombre,
     sesiones,
+    retirarSesion,
   };
 }

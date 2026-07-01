@@ -40,7 +40,7 @@
 // _Requirements: 1.1, 1.2, 1.3_
 
 import { crearCoordinador, MensajeCliente, MensajeServidor } from './coordinador';
-import type { Coordinador, ResultadoCoordinador } from './coordinador';
+import type { Coordinador, ContextoCoordinador, ResultadoCoordinador } from './coordinador';
 import { crearDifusor } from './difusor';
 import type { Difusor } from './difusor';
 import { crearGestorSesiones } from './sesiones';
@@ -121,6 +121,27 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
     });
   }
 
+  /** Mapa jugadorId → conectado a partir de las sesiones del gestor. */
+  function mapaConexion(): Map<string, boolean> {
+    return new Map(
+      gestor.sesiones().map((sesion) => [sesion.sessionId, sesion.conectado]),
+    );
+  }
+
+  function contextoCoordinador(): ContextoCoordinador {
+    return { conexionPorJugador: mapaConexion() };
+  }
+
+  /** Retira del gestor las sesiones indicadas por el Coordinador. */
+  function retirarSesionesIndicadas(resultado: ResultadoCoordinador): void {
+    if (resultado.clase !== 'DIFUNDIR' || resultado.sesionesARetirar === undefined) {
+      return;
+    }
+    for (const sessionId of resultado.sesionesARetirar) {
+      gestor.retirarSesion(sessionId);
+    }
+  }
+
   /**
    * Traduce el resultado del Coordinador en efectos de transporte:
    *   - DIFUNDIR  → sincroniza la Partida y difunde las vistas a todos.
@@ -134,6 +155,7 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
   ): void {
     switch (resultado.clase) {
       case 'DIFUNDIR':
+        retirarSesionesIndicadas(resultado);
         sincronizarPartida();
         difusor.difundir();
         break;
@@ -177,14 +199,18 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
     const sessionId = conexionResultado.sesion.sessionId;
 
     if (conexionResultado.esReconexion) {
-      // Reincorporación a una Partida activa: el estado del Jugador ya está
+      // Reincorporación (Lobby o Partida en curso): el estado ya está
       // preservado; basta con reenviarle (y a todos) la vista actual.
       difusor.difundir();
       return;
     }
 
     // Alta nueva: reenviar el registro al coordinador con jugadorId = sessionId.
-    const resultado = coordinador.procesarMensaje(sessionId, mensaje);
+    const resultado = coordinador.procesarMensaje(
+      sessionId,
+      mensaje,
+      contextoCoordinador(),
+    );
     aplicarResultado(resultado, conexion);
 
     // Si el registro fue rechazado, revertir la sesión para no dejarla huérfana.
@@ -225,7 +251,11 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
       }
 
       // Mensaje posterior: jugadorId = sessionId de la sesión asociada.
-      const resultado = coordinador.procesarMensaje(sesion.sessionId, mensaje);
+      const resultado = coordinador.procesarMensaje(
+        sesion.sessionId,
+        mensaje,
+        contextoCoordinador(),
+      );
       aplicarResultado(resultado, conexion);
     },
 
@@ -233,18 +263,9 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
       // Retiramos la conexión del mapa vivo para que el Difusor no le envíe más.
       conexiones.delete(conexion.id);
 
-      // En LOBBY, una desconexión equivale a abandonar: retiramos al Jugador del
-      // estado autoritativo para que la lista quede consistente. En EN_CURSO, el
-      // gestor preserva la sesión para permitir la reconexión por nombre.
-      const enLobby = coordinador.obtenerEstado().fase === 'LOBBY';
-      const sesion = gestor.obtenerSesionPorConexion(conexion.id);
-      if (enLobby && sesion !== null) {
-        coordinador.procesarMensaje(sesion.sessionId, { tipo: MensajeCliente.ABANDONAR });
-      }
-
       gestor.desconectar(conexion.id);
 
-      // Difundimos el nuevo estado (p. ej. la lista de Jugadores actualizada).
+      // Difundimos el nuevo estado (p. ej. miembro desconectado en Lobby o Partida).
       difusor.difundir();
     },
   };

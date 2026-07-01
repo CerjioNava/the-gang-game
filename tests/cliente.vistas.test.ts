@@ -8,7 +8,7 @@
 //   - Recordatorio permanente de no revelar/insinuar cartas ni hacer bluff,
 //     visible en la pantalla de juego (criterio 10.2).
 //   - Idioma español y uso de los términos del glosario (criterios 11.1, 11.2).
-//   - Ranking_de_Manos con las diez categorías en orden de menor a mayor
+//   - Ranking_de_Manos con las diez categorías en orden de mayor a menor
 //     (criterio 11.3).
 //
 // Estas vistas usan el DOM (document), por lo que esta suite se ejecuta con el
@@ -75,10 +75,10 @@ function vistaEnCurso(): VistaPartida {
     fase: 'EN_CURSO',
     perspectivaJugadorId: 'j1',
     jugadores: [
-      { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(14, 'PICAS'), carta(13, 'PICAS')] },
-      { id: 'j2', nombre: 'La Sombra', bolsillo: BOLSILLO_OCULTO },
-      { id: 'j3', nombre: 'El Manos', bolsillo: BOLSILLO_OCULTO },
-      { id: 'j4', nombre: 'El Topo', bolsillo: BOLSILLO_OCULTO },
+      { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(14, 'PICAS'), carta(13, 'PICAS')], conectado: true },
+      { id: 'j2', nombre: 'La Sombra', bolsillo: BOLSILLO_OCULTO, conectado: true },
+      { id: 'j3', nombre: 'El Manos', bolsillo: BOLSILLO_OCULTO, conectado: false },
+      { id: 'j4', nombre: 'El Topo', bolsillo: BOLSILLO_OCULTO, conectado: true },
     ],
     golpeActual: {
       numero: 1,
@@ -90,11 +90,14 @@ function vistaEnCurso(): VistaPartida {
         porJugador,
         colorActivo: 'AMARILLO',
       },
+      confirmados: [],
     },
     golpesJugados: 0,
     bovedasDoradas: 1,
     alarmasRojas: 0,
     resultado: null,
+    espectadores: [],
+    esEspectador: false,
   };
 }
 
@@ -104,6 +107,9 @@ function estadoCliente(vista: VistaPartida): EstadoCliente {
     vista,
     error: null,
     nombreBorrador: '',
+    descripcionBorrador: '',
+    aliasElegido: null,
+    modoUnirse: 'JUGADOR',
   };
 }
 
@@ -153,6 +159,14 @@ describe('Vista de la mesa: restricciones de comunicación (10.1, 10.5)', () => 
       expect(texto).not.toMatch(/revelar|mostrar|enviar|comunicar|insinuar|ense[ñn]ar/i);
       expect(texto).not.toMatch(/cart/i);
     }
+  });
+  it('muestra el estado de conexión de cada miembro de la banda', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
+
+    expect(contenedor.querySelectorAll('.jugador-estatus--activo').length).toBe(3);
+    expect(contenedor.querySelectorAll('.jugador-estatus--desconectado').length).toBe(1);
+    expect(contenedor.textContent).toContain('Desconectado');
   });
 });
 
@@ -211,35 +225,35 @@ describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
 // ===========================================================================
 
 describe('Ranking_de_Manos en orden (11.3)', () => {
-  const ORDEN_ESPERADO = [
-    'Carta Alta',
-    'Par',
-    'Dos Pares',
-    'Trío',
-    'Escalera',
-    'Full House',
-    'Póker',
-    'Color',
-    'Escalera de Color',
+  const ORDEN_UI = [
     'Escalera Real',
+    'Escalera de Color',
+    'Color',
+    'Póker',
+    'Full House',
+    'Escalera',
+    'Trío',
+    'Dos Pares',
+    'Par',
+    'Carta Alta',
   ];
 
-  it('CATEGORIAS_RANKING tiene 10 categorías de menor a mayor', () => {
+  it('CATEGORIAS_RANKING tiene 10 categorías de mayor a menor en el panel', () => {
     expect(CATEGORIAS_RANKING).toHaveLength(10);
 
     const nombres = CATEGORIAS_RANKING.map((e) => NOMBRE_CATEGORIA[e.categoria]);
-    expect(nombres).toEqual(ORDEN_ESPERADO);
+    expect(nombres).toEqual(ORDEN_UI);
 
-    // El orden propio de The Gang: Full House < Póker < Color.
+    // El orden propio de The Gang: Full House < Póker < Color (valores del enum).
     const categorias = CATEGORIAS_RANKING.map((e) => e.categoria);
     const iFull = categorias.indexOf(CategoriaMano.FULL_HOUSE);
     const iPoker = categorias.indexOf(CategoriaMano.POKER);
     const iColor = categorias.indexOf(CategoriaMano.COLOR);
-    expect(iFull).toBeLessThan(iPoker);
-    expect(iPoker).toBeLessThan(iColor);
+    expect(iFull).toBeGreaterThan(iPoker);
+    expect(iPoker).toBeGreaterThan(iColor);
 
-    // El valor numérico del enum también respeta ese orden estrictamente creciente.
-    expect(categorias).toEqual([...categorias].sort((a, b) => a - b));
+    // En pantalla el enum va de mayor a menor.
+    expect(categorias).toEqual([...categorias].sort((a, b) => b - a));
   });
 
   it('montarRanking crea el botón "Ranking de manos" y un panel con las 10 categorías en orden', () => {
@@ -252,10 +266,13 @@ describe('Ranking_de_Manos en orden (11.3)', () => {
     const items = document.querySelectorAll('#ranking-overlay .ranking__item');
     expect(items).toHaveLength(10);
 
+    const ejemplos = document.querySelectorAll('#ranking-overlay .ranking__ejemplo .carta');
+    expect(ejemplos).toHaveLength(50);
+
     const nombresPanel = Array.from(
       document.querySelectorAll('#ranking-overlay .ranking__nombre'),
     ).map((n) => (n.textContent ?? '').trim());
-    expect(nombresPanel).toEqual(ORDEN_ESPERADO);
+    expect(nombresPanel).toEqual(ORDEN_UI);
   });
 
   it('montarRanking es idempotente (no duplica el botón en sucesivos re-render)', () => {

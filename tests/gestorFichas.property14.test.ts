@@ -158,4 +158,40 @@ describe('Property 14: Intercambio de Fichas conserva la cardinalidad y permuta 
       }),
     );
   });
+
+  it('(c) un Jugador sin Ficha del color activo toma la de otro y el otro queda sin ella', () => {
+    verificarPropiedad(
+      fc.property(genNyDosEstrellas, ({ n, b }) => {
+        // j1 tiene la Ficha blanca de `b` estrellas; j0 aún no tiene ninguna.
+        const base = prepararFichas(n);
+        const trasB = tomar(base, 'j1', { color: 'BLANCO', estrellas: b });
+        expect(trasB.ok).toBe(true);
+        if (!trasB.ok) return;
+        const estado = trasB.estado;
+
+        const fichaB: Ficha = { color: 'BLANCO', estrellas: b };
+
+        const antes = instantanea(estado);
+        const multiAntes = multiconjuntoTotal(estado);
+
+        const res = intercambiarConJugador(estado, 'j0', 'j1', 'BLANCO');
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        const nuevo = res.estado;
+
+        const blancasJ0 = (nuevo.porJugador['j0'] ?? []).filter(
+          (f) => f.color === 'BLANCO',
+        );
+        const blancasJ1 = (nuevo.porJugador['j1'] ?? []).filter(
+          (f) => f.color === 'BLANCO',
+        );
+        expect(blancasJ0).toHaveLength(1);
+        expect(blancasJ0[0]).toEqual(fichaB);
+        expect(blancasJ1).toHaveLength(0);
+
+        expect(multiconjuntoTotal(nuevo)).toEqual(multiAntes);
+        expect(instantanea(estado)).toBe(antes);
+      }),
+    );
+  });
 });

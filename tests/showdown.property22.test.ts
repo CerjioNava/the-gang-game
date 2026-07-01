@@ -89,6 +89,7 @@ function construirShowdown(
       porJugador,
       colorActivo: 'ROJO',
     },
+    confirmados: [],
   };
 
   return { jugadores, golpe };

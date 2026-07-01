@@ -9,7 +9,7 @@ import type { Ficha, Jugador } from '../src/dominio/modelos';
 // Feature: the-gang-game, Property 8: Para cualquier estado de Golpe, el
 // Motor_Juego habilita el avance (a la siguiente Ronda si no es River, o al
 // Showdown si es River) si y solo si todos los Jugadores poseen exactamente una
-// Ficha del color de la Ronda activa.
+// Ficha del color de la Ronda activa y todos confirman.
 
 /** Genera el número de Jugadores N: entero entre 3 y 6 (Modo Básico). */
 const genN: fc.Arbitrary<number> = fc.integer({ min: 3, max: 6 });
@@ -32,8 +32,8 @@ function crearJugadores(n: number): Jugador[] {
   }));
 }
 
-describe('Property 8: Avance de Ronda condicionado a Fichas completas', () => {
-  it('AVANZAR tiene ok=true (y avanza la Ronda) si y solo si todos los Jugadores poseen una Ficha del color activo', () => {
+describe('Property 8: Avance de Ronda condicionado a Fichas completas y confirmación', () => {
+  it('CONFIRMAR rechaza al jugador que no tiene ficha del color activo; cuando todos tienen ficha y todos confirman, la ronda avanza', () => {
     verificarPropiedad(
       fc.property(genN, genTomas, fc.integer(), (n, tomasBrutas, semilla) => {
         // Partida en Pre-Flop: el color activo es BLANCO y las Fichas blancas
@@ -42,9 +42,7 @@ describe('Property 8: Avance de Ronda condicionado a Fichas completas', () => {
         const estadoInicial = iniciarPartida(jugadores, semilla);
         const colorActivo = estadoInicial.golpeActual!.fichas.colorActivo;
 
-        // Subconjunto de Jugadores que toman su Ficha del color activo. A cada
-        // tomador se le asigna una estrella distinta (1, 2, 3, ...) para que la
-        // toma sea siempre válida y no haya colisiones de Ficha en el centro.
+        // Subconjunto de Jugadores que toman su Ficha del color activo.
         const tomas = tomasBrutas.slice(0, n);
         let estado = estadoInicial;
         let estrellaSiguiente = 1;
@@ -57,7 +55,6 @@ describe('Property 8: Avance de Ronda condicionado a Fichas completas', () => {
             jugadorId: `j${i}`,
             ficha,
           });
-          // Cada toma de una Ficha disponible y distinta debe ser válida.
           expect(res.ok).toBe(true);
           if (!res.ok) return;
           estado = res.estado;
@@ -67,19 +64,29 @@ describe('Property 8: Avance de Ronda condicionado a Fichas completas', () => {
         const todosTienenFicha = tomas.every((toma) => toma === true);
 
         const rondaAntes = estado.golpeActual!.ronda;
-        const resultado = aplicarAccion(estado, { tipo: 'AVANZAR' });
 
         if (todosTienenFicha) {
-          // Bicondicional (⇒): si todos poseen su Ficha, el avance se habilita.
+          // Si todos poseen su Ficha, todos pueden confirmar y al confirmar el
+          // último la ronda avanza.
+          for (let i = 0; i < n - 1; i++) {
+            const res = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: `j${i}` });
+            expect(res.ok).toBe(true);
+            if (!res.ok) return;
+            estado = res.estado;
+            // Ronda no ha avanzado aún
+            expect(estado.golpeActual!.ronda).toBe(rondaAntes);
+          }
+          // Último jugador confirma → la ronda avanza
+          const resultado = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: `j${n - 1}` });
           expect(resultado.ok).toBe(true);
           if (!resultado.ok) return;
-          // Desde Pre-Flop el avance pasa a la siguiente Ronda (Flop).
           expect(resultado.estado.golpeActual!.ronda).toBe('FLOP');
         } else {
-          // Bicondicional (⇐): si falta al menos un Jugador, el avance se
-          // rechaza y la Ronda no cambia.
+          // Si falta al menos un Jugador sin ficha, ese jugador no puede confirmar.
+          const sinFicha = tomas.findIndex((toma) => !toma);
+          const resultado = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: `j${sinFicha}` });
           expect(resultado.ok).toBe(false);
-          // El estado previo permanece intacto: la Ronda sigue siendo la misma.
+          // El estado previo permanece intacto.
           expect(estado.golpeActual!.ronda).toBe(rondaAntes);
         }
       }),

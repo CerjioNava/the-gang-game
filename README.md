@@ -23,7 +23,7 @@ Una partida se compone de varios **golpes**. Cada golpe tiene cuatro rondas:
 | Turn       | 1 carta comunitaria           | Naranjas  |
 | River      | 1 carta comunitaria           | Rojas     |
 
-En cada ronda, cada jugador toma o intercambia **una ficha** de ese color para estimar la fuerza de su mano respecto al resto (más estrellas = mano más fuerte). Solo se puede tener una ficha de cada color.
+En cada ronda, cada jugador toma o intercambia **una ficha** de ese color para estimar la fuerza de su mano respecto al resto (más estrellas = mano más fuerte). Puedes tomarla del centro o quitársela a un compañero aunque aún no tengas la tuya; en ese caso él deberá buscar otra ficha del mismo color. Solo se puede tener una ficha de cada color.
 
 En el **Showdown** solo cuentan las fichas rojas: las manos se revelan en orden ascendente, empezando por la ficha roja de 1 estrella. Si la fuerza de las manos no decrece a lo largo de ese orden, el golpe es un éxito (bóveda dorada); si alguien resulta más débil que un jugador anterior, el golpe fracasa (alarma roja).
 

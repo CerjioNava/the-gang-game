@@ -19,6 +19,8 @@
 import {
   MAX_JUGADORES,
   MIN_JUGADORES,
+  AJUSTES_POR_DEFECTO,
+  type AjustesPartida,
   type ColorFicha,
   type EstadoGolpe,
   type EstadoPartida,
@@ -90,7 +92,8 @@ function siguienteRonda(ronda: Ronda): Ronda | null {
  * la Partida. Unión discriminada por el campo `tipo`; se deja extensible para
  * sumar acciones futuras sin romper a los consumidores.
  *
- * - `AVANZAR`: pasa a la siguiente Ronda, o inicia el Showdown desde River.
+ * - `CONFIRMAR`: un jugador confirma su ficha de la ronda actual. Cuando TODOS
+ *   los jugadores han confirmado, la ronda avanza automáticamente.
  * - `RESOLVER_SHOWDOWN`: resuelve el Showdown del Golpe (solo aplicable cuando
  *   la Ronda activa es SHOWDOWN), actualiza Bóvedas/Alarmas y encadena o finaliza
  *   la Partida.
@@ -98,7 +101,7 @@ function siguienteRonda(ronda: Ronda): Ronda | null {
  *   el Gestor_Fichas la toma e intercambio de Fichas del color activo.
  */
 export type Accion =
-  | { tipo: 'AVANZAR' }
+  | { tipo: 'CONFIRMAR'; jugadorId: string }
   | { tipo: 'RESOLVER_SHOWDOWN' }
   | { tipo: 'TOMAR_FICHA'; jugadorId: string; ficha: Ficha }
   | { tipo: 'INTERCAMBIAR_CENTRO'; jugadorId: string; fichaCentro: Ficha }
@@ -121,6 +124,7 @@ export type Accion =
  *
  * @param jugadores Jugadores registrados (entre 3 y 6).
  * @param semilla Semilla para el barajado determinista y reproducible.
+ * @param ajustes Ajustes opcionales del modo de juego (por defecto sinKickers=false).
  * @returns Estado inicial de la Partida en curso.
  * @throws {RangeError} Si el número de Jugadores está fuera del rango 3..6.
  * _Requirements: 3.1, 3.2, 4.1_
@@ -128,6 +132,7 @@ export type Accion =
 export function iniciarPartida(
   jugadores: readonly Jugador[],
   semilla: Semilla,
+  ajustes?: AjustesPartida,
 ): EstadoPartida {
   const numJugadores = jugadores.length;
   if (numJugadores < MIN_JUGADORES || numJugadores > MAX_JUGADORES) {
@@ -150,6 +155,7 @@ export function iniciarPartida(
     baraja: resto,
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
+    confirmados: [],
   };
 
   return {
@@ -161,6 +167,7 @@ export function iniciarPartida(
     alarmasRojas: 0,
     resultado: null,
     semilla,
+    ajustes: ajustes ?? AJUSTES_POR_DEFECTO,
   };
 }
 
@@ -214,23 +221,24 @@ export function aplicarAccion(
 
   const golpe = estado.golpeActual;
   switch (accion.tipo) {
-    case 'AVANZAR':
-      return avanzar(estado, golpe);
+    case 'CONFIRMAR':
+      return confirmar(estado, golpe, accion.jugadorId);
     case 'RESOLVER_SHOWDOWN':
       return resolver(estado, golpe);
     case 'TOMAR_FICHA':
-      return aplicarFichas(estado, golpe, tomar(golpe.fichas, accion.jugadorId, accion.ficha), [
+      return aplicarFichasConCancelacion(estado, golpe, tomar(golpe.fichas, accion.jugadorId, accion.ficha), [
         { tipo: 'FICHA_TOMADA', jugadorId: accion.jugadorId, ficha: accion.ficha },
-      ]);
+      ], [accion.jugadorId]);
     case 'INTERCAMBIAR_CENTRO':
-      return aplicarFichas(
+      return aplicarFichasConCancelacion(
         estado,
         golpe,
         intercambiarConCentro(golpe.fichas, accion.jugadorId, accion.fichaCentro),
         [{ tipo: 'FICHA_INTERCAMBIADA', jugadorId: accion.jugadorId }],
+        [accion.jugadorId],
       );
     case 'INTERCAMBIAR_JUGADOR':
-      return aplicarFichas(
+      return aplicarFichasConCancelacion(
         estado,
         golpe,
         intercambiarConJugador(
@@ -240,6 +248,7 @@ export function aplicarAccion(
           golpe.fichas.colorActivo,
         ),
         [{ tipo: 'FICHA_INTERCAMBIADA', jugadorId: accion.jugadorA }],
+        [accion.jugadorA, accion.jugadorB],
       );
   }
 }
@@ -247,19 +256,23 @@ export function aplicarAccion(
 /**
  * Incorpora al Golpe en curso el resultado de una operación del Gestor_Fichas.
  * Si la operación fue rechazada, propaga el error sin modificar el estado; si
- * tuvo éxito, devuelve el nuevo estado con las Fichas actualizadas y los
- * eventos indicados.
+ * tuvo éxito, devuelve el nuevo estado con las Fichas actualizadas, cancela las
+ * confirmaciones de los jugadores indicados y emite los eventos.
  */
-function aplicarFichas(
+function aplicarFichasConCancelacion(
   estado: EstadoPartida,
   golpe: EstadoGolpe,
   resultado: ReturnType<typeof tomar>,
   eventos: EventoJuego[],
+  jugadoresACancelar: string[],
 ): ResultadoAccion {
   if (!resultado.ok) {
     return { ok: false, error: resultado.error };
   }
-  const nuevoGolpe: EstadoGolpe = { ...golpe, fichas: resultado.estado };
+  const confirmados = golpe.confirmados.filter(
+    (id) => !jugadoresACancelar.includes(id),
+  );
+  const nuevoGolpe: EstadoGolpe = { ...golpe, fichas: resultado.estado, confirmados };
   return {
     ok: true,
     estado: { ...estado, golpeActual: nuevoGolpe },
@@ -268,12 +281,58 @@ function aplicarFichas(
 }
 
 /**
+ * Un jugador confirma su ficha de la ronda actual.
+ *
+ * Verifica que el jugador tiene una ficha del color activo y que no ha confirmado
+ * ya (idempotente: si ya confirmó no hace nada extra). Cuando TODOS los jugadores
+ * han confirmado, ejecuta la lógica de avance de ronda automáticamente.
+ */
+function confirmar(estado: EstadoPartida, golpe: EstadoGolpe, jugadorId: string): ResultadoAccion {
+  const colorActivo = colorDeRonda(golpe.ronda);
+  const fichasJugador = golpe.fichas.porJugador[jugadorId] ?? [];
+  const tieneFichaActiva = fichasJugador.some((f) => f.color === colorActivo);
+
+  if (!tieneFichaActiva) {
+    return errorAccion(
+      'ACCION_NO_PERMITIDA',
+      'No tienes una ficha del color de esta fase; no puedes confirmar.',
+    );
+  }
+
+  // Idempotente: si ya confirmó, no hacer nada extra.
+  if (golpe.confirmados.includes(jugadorId)) {
+    return {
+      ok: true,
+      estado,
+      eventos: [],
+    };
+  }
+
+  const confirmados = [...golpe.confirmados, jugadorId];
+  const todosConfirmados = estado.jugadores.every((j) => confirmados.includes(j.id));
+
+  if (!todosConfirmados) {
+    // Aún faltan jugadores por confirmar: solo actualizar el set de confirmados.
+    const nuevoGolpe: EstadoGolpe = { ...golpe, confirmados };
+    return {
+      ok: true,
+      estado: { ...estado, golpeActual: nuevoGolpe },
+      eventos: [],
+    };
+  }
+
+  // Todos confirmaron → avanzar de ronda automáticamente.
+  const golpeConConfirmados: EstadoGolpe = { ...golpe, confirmados };
+  return avanzar(estado, golpeConConfirmados);
+}
+
+/**
  * Avanza el Golpe a la siguiente Ronda, o inicia el Showdown desde River.
  *
  * Solo se habilita si todos los Jugadores poseen una Ficha del color de la
  * Ronda activa (criterios 3.3, 3.4, 6.8). Al entrar en Flop/Turn/River revela
  * las Cartas Comunitarias correspondientes y cambia el color activo de las
- * Fichas al de la nueva Ronda.
+ * Fichas al de la nueva Ronda. Resetea las confirmaciones al empezar la nueva ronda.
  */
 function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   const colorActivo = colorDeRonda(golpe.ronda);
@@ -295,11 +354,7 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   }
 
   if (proxima === 'SHOWDOWN') {
-    // Transición a Showdown desde River. La resolución del Showdown (conteo de
-    // Bóvedas/Alarmas y condiciones de fin) la realiza la acción explícita
-    // RESOLVER_SHOWDOWN; aquí solo se cambia la Ronda dejando intactas
-    // Comunitarias y Fichas.
-    const nuevoGolpe: EstadoGolpe = { ...golpe, ronda: 'SHOWDOWN' };
+    const nuevoGolpe: EstadoGolpe = { ...golpe, ronda: 'SHOWDOWN', confirmados: [] };
     return {
       ok: true,
       estado: { ...estado, golpeActual: nuevoGolpe },
@@ -320,6 +375,7 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
     comunitarias: revelado.comunitarias,
     baraja: revelado.resto,
     fichas: { ...golpe.fichas, colorActivo: nuevoColor },
+    confirmados: [],
   };
 
   return {
@@ -368,7 +424,7 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
     );
   }
 
-  const showdown = resolverShowdown(estado.jugadores, golpe);
+  const showdown = resolverShowdown(estado.jugadores, golpe, estado.ajustes);
 
   // Modo Básico (criterio 12.5): éxito → +1 Bóveda; fracaso → +1 Alarma. La otra
   // cuenta permanece sin cambios (criterios 8.6, 8.7).
@@ -480,6 +536,7 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
     baraja: resto,
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
+    confirmados: [],
   };
 
   return {

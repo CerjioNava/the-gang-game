@@ -79,6 +79,7 @@ describe('Property 21: Orden del Showdown es una biyección ascendente', () => {
             porJugador,
             colorActivo: 'ROJO',
           },
+          confirmados: [],
         };
 
         const resultado = resolverShowdown(jugadores, golpe);

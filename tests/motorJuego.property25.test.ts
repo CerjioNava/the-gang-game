@@ -118,6 +118,7 @@ function construirEstadoShowdown(
     baraja: [],
     comunitarias,
     fichas,
+    confirmados: [],
   };
 
   const estado: EstadoPartida = {

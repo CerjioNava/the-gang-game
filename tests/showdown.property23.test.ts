@@ -154,6 +154,7 @@ function construirGolpe(n: number, mapaEstrellas: Record<string, number>): Estad
     baraja: [],
     comunitarias: [...COMUNITARIAS],
     fichas: { numJugadores: n, centro: [], porJugador, colorActivo: 'ROJO' },
+    confirmados: [],
   };
 }
 

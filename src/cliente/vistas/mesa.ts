@@ -27,6 +27,8 @@ import type {
   VistaPartida,
 } from '../protocolo';
 import { BOLSILLO_OCULTO, type VistaGolpe } from '../../dominio/proyeccion';
+import { estatusJugadorHtml } from './estatusJugador';
+import { nombreConTooltipHtml } from './tooltipNombre';
 
 /** Acciones que la vista de la mesa puede solicitar a la capa de aplicación. */
 export interface AccionesMesa {
@@ -165,29 +167,30 @@ export function renderizarMesa(
   const golpe = vista.golpeActual;
   const fichas = golpe.fichas;
   const yoId = vista.perspectivaJugadorId;
+  const esEspectador = vista.esEspectador;
   const colorActivo = fichas.colorActivo;
   const esShowdown = golpe.ronda === 'SHOWDOWN';
 
-  // Fichas propias del color activo (a lo sumo una): determina si "tomar" o
-  // "intercambiar" al pulsar una Ficha del centro.
   const misFichas = fichas.porJugador[yoId] ?? [];
   const miFichaActiva = misFichas.find((f) => f.color === colorActivo) ?? null;
-  const tengoFichaActiva = miFichaActiva !== null;
+  const tengoFichaActiva = !esEspectador && miFichaActiva !== null;
 
   contenedor.innerHTML = `
-    <section class="mesa">
-      ${recordatorioHtml()}
+    <section class="mesa${esEspectador ? ' mesa--espectador' : ''}">
+      ${esEspectador ? bannerEspectadorHtml() : recordatorioHtml()}
       ${cabeceraGolpeHtml(vista, golpe)}
       ${marcadorHtml(vista)}
       ${comunitariasHtml(golpe)}
-      ${bolsilloPropioHtml(vista)}
-      ${centroFichasHtml(fichas.centro, colorActivo, tengoFichaActiva, esShowdown)}
-      ${bandaHtml(vista, colorActivo, tengoFichaActiva, esShowdown)}
-      ${accionesHtml(esShowdown)}
+      ${esEspectador ? '' : bolsilloPropioHtml(vista)}
+      ${centroFichasHtml(fichas.centro, colorActivo, tengoFichaActiva, esShowdown, esEspectador)}
+      ${bandaHtml(vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador)}
+      ${esEspectador ? '' : accionesHtml(esShowdown, vista)}
     </section>
   `;
 
-  enlazarEventos(contenedor, acciones);
+  if (!esEspectador) {
+    enlazarEventos(contenedor, acciones);
+  }
 }
 
 // ===========================================================================
@@ -205,6 +208,15 @@ function recordatorioHtml(): string {
       <strong>Regla de oro de la banda:</strong> está prohibido revelar, insinuar
       o discutir vuestras Cartas de Bolsillo. No se permite el bluff. Coordinad el
       golpe únicamente con vuestras Fichas.
+    </div>`;
+}
+
+/** Aviso para quien observa sin jugar. */
+function bannerEspectadorHtml(): string {
+  return `
+    <div class="recordatorio recordatorio--espectador" role="note">
+      <strong>Modo espectador:</strong> estás observando el golpe. No puedes tomar
+      Fichas ni confirmar acciones; las Cartas de Bolsillo se revelan en el Showdown.
     </div>`;
 }
 
@@ -297,6 +309,7 @@ function centroFichasHtml(
   colorActivo: ColorFicha,
   tengoFichaActiva: boolean,
   esShowdown: boolean,
+  esEspectador = false,
 ): string {
   const disponibles = centro.filter((f) => f.color === colorActivo);
   disponibles.sort((a, b) => a.estrellas - b.estrellas);
@@ -306,6 +319,10 @@ function centroFichasHtml(
     cuerpo = '<p class="mesa__sin-cartas">El reparto de Fichas ha terminado en este Golpe.</p>';
   } else if (disponibles.length === 0) {
     cuerpo = `<p class="mesa__sin-cartas">No quedan Fichas ${NOMBRE_COLOR[colorActivo]} en el centro.</p>`;
+  } else if (esEspectador) {
+    cuerpo = `<div class="fichas-fila fichas-fila--solo-lectura">${disponibles
+      .map((f) => fichaInsigniaHtml(f))
+      .join('')}</div>`;
   } else {
     const accion = tengoFichaActiva ? 'INTERCAMBIAR_CENTRO' : 'TOMAR_FICHA';
     const etiqueta = tengoFichaActiva ? 'Intercambiar' : 'Tomar';
@@ -337,16 +354,20 @@ function centroFichasHtml(
 /**
  * Estado del resto de la banda: cada Jugador con sus Fichas en posesión y sus
  * Cartas de Bolsillo OCULTAS (boca abajo) salvo en el Showdown. Permite proponer
- * un intercambio de Ficha del color activo con otro Jugador que la posea.
+ * un intercambio de Ficha del color activo con otro Jugador que la posea (si
+ * tú no tienes, la tomas; si ya tienes, se permutan).
  */
 function bandaHtml(
   vista: VistaPartida,
   colorActivo: ColorFicha,
   tengoFichaActiva: boolean,
   esShowdown: boolean,
+  esEspectador = false,
 ): string {
   const filas = vista.jugadores
-    .map((jugador) => filaJugadorHtml(jugador, vista, colorActivo, tengoFichaActiva, esShowdown))
+    .map((jugador) =>
+      filaJugadorHtml(jugador, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador),
+    )
     .join('');
 
   return `
@@ -363,16 +384,24 @@ function filaJugadorHtml(
   colorActivo: ColorFicha,
   tengoFichaActiva: boolean,
   esShowdown: boolean,
+  esEspectador = false,
 ): string {
   const yoId = vista.perspectivaJugadorId;
   const esYo = jugador.id === yoId;
   const fichas = vista.golpeActual?.fichas;
   const susFichas = fichas?.porJugador[jugador.id] ?? [];
+  const confirmados = vista.golpeActual?.confirmados ?? [];
+  const haConfirmado = confirmados.includes(jugador.id);
 
   const insignias =
     susFichas.length === 0
       ? '<span class="banda__sin-fichas">sin Fichas</span>'
       : susFichas.map(fichaInsigniaHtml).join('');
+
+  // Indicador de confirmación
+  const indicadorConfirmacion = !esShowdown && haConfirmado
+    ? '<span class="banda__confirmado" title="Listo">✓</span>'
+    : '';
 
   // Cartas: el propio Jugador ve las suyas; las ajenas van boca abajo salvo en
   // el Showdown, donde la vista del servidor ya las revela. NUNCA se ofrece un
@@ -388,18 +417,18 @@ function filaJugadorHtml(
       .join('')}</div>`;
   }
 
-  // Intercambio con otro Jugador: requiere que YO tenga Ficha del color activo,
-  // que el OTRO también la tenga, no ser yo mismo y no estar en Showdown.
+  // Intercambio con otro Jugador: basta con que el OTRO tenga Ficha del color
+  // activo (si tú no tienes, la tomas; si ya tienes, se permutan).
   const otroTieneActiva = susFichas.some((f) => f.color === colorActivo);
-  const puedeIntercambiar =
-    !esYo && !esShowdown && tengoFichaActiva && otroTieneActiva;
+  const puedeIntercambiar = !esEspectador && !esYo && !esShowdown && otroTieneActiva;
+  const etiquetaIntercambio = tengoFichaActiva ? 'Intercambiar Ficha' : 'Tomar Ficha';
   const botonIntercambio = puedeIntercambiar
     ? `<button
          type="button"
          class="boton boton--secundario banda__intercambio"
          data-accion="INTERCAMBIAR_JUGADOR"
          data-jugador="${escapar(jugador.id)}"
-       >Intercambiar Ficha</button>`
+       >${etiquetaIntercambio}</button>`
     : '';
 
   const etiquetaYo = esYo ? ' <span class="banda__tu">(tú)</span>' : '';
@@ -407,7 +436,8 @@ function filaJugadorHtml(
   return `
     <li class="banda__jugador">
       <div class="banda__info">
-        <span class="banda__nombre">${escapar(jugador.nombre)}${etiquetaYo}</span>
+        <span class="banda__nombre">${estatusJugadorHtml(jugador.conectado)}<span class="banda__alias">${nombreConTooltipHtml(jugador.nombre, jugador.descripcion)}${etiquetaYo}</span></span>
+        ${indicadorConfirmacion}
         <span class="banda__fichas">${insignias}</span>
       </div>
       ${cartas}
@@ -416,13 +446,14 @@ function filaJugadorHtml(
 }
 
 /**
- * Controles de avance del Golpe. "Avanzar" pasa a la siguiente Ronda (o al
- * Showdown desde River). En el Showdown se ofrece "Resolver el golpe".
+ * Controles de avance del Golpe. "Confirmar ficha" confirma la selección del
+ * jugador. Cuando todos confirman, la ronda avanza automáticamente. En el
+ * Showdown se ofrece "Resolver el golpe".
  *
  * Esta sección NO incluye ningún control para comunicar cartas ni chat de texto
  * libre (criterios 10.1, 10.5).
  */
-function accionesHtml(esShowdown: boolean): string {
+function accionesHtml(esShowdown: boolean, vista?: VistaPartida): string {
   if (esShowdown) {
     return `
       <div class="mesa__acciones">
@@ -431,14 +462,32 @@ function accionesHtml(esShowdown: boolean): string {
         </button>
       </div>`;
   }
+
+  const golpe = vista?.golpeActual;
+  const yoId = vista?.perspectivaJugadorId ?? '';
+  const confirmados = golpe?.confirmados ?? [];
+  const yaConfirme = confirmados.includes(yoId);
+  const totalJugadores = vista?.jugadores.length ?? 0;
+  const pendientes = totalJugadores - confirmados.length;
+
+  // Comprobar si el jugador tiene ficha del color activo
+  const misFichas = golpe?.fichas.porJugador[yoId] ?? [];
+  const colorActivo = golpe?.fichas.colorActivo;
+  const tengoFichaActiva = colorActivo != null && misFichas.some((f) => f.color === colorActivo);
+
+  const deshabilitado = yaConfirme || !tengoFichaActiva ? ' disabled' : '';
+  const textoBoton = yaConfirme ? '✓ Confirmado' : 'Confirmar ficha';
+
+  const mensajeEspera = pendientes > 0
+    ? `<p class="mesa__acciones-ayuda">Esperando confirmación de ${pendientes} miembro${pendientes === 1 ? '' : 's'}…</p>`
+    : '';
+
   return `
     <div class="mesa__acciones">
-      <button type="button" id="boton-avanzar" class="boton boton--golpe">
-        Avanzar
+      <button type="button" id="boton-avanzar" class="boton boton--golpe"${deshabilitado}>
+        ${textoBoton}
       </button>
-      <p class="mesa__acciones-ayuda">
-        Avanzad cuando toda la banda tenga su Ficha del color de la Ronda.
-      </p>
+      ${mensajeEspera}
     </div>`;
 }
 

@@ -119,6 +119,26 @@ export type Semilla = number | string;
 /** Resultado final de la Partida. */
 export type ResultadoPartida = 'VICTORIA' | 'DERROTA';
 
+// ===========================================================================
+// Ajustes de la Partida
+// ===========================================================================
+
+/**
+ * Ajustes configurables del modo de juego. El Anfitrión puede modificarlos
+ * desde el Lobby antes de dar el Golpe.
+ */
+export interface AjustesPartida {
+  /**
+   * Cuando es true, el desempate entre manos de igual categoría y valor de
+   * categoría se resuelve comparando las cartas de bolsillo en orden descendente
+   * en vez de los kickers de la mejor mano de 5.
+   */
+  sinKickers: boolean;
+}
+
+/** Ajustes por defecto: comportamiento clásico (con kickers). */
+export const AJUSTES_POR_DEFECTO: AjustesPartida = { sinKickers: false };
+
 /** Número mínimo de Jugadores admitido por las reglas del Modo Básico. */
 export const MIN_JUGADORES = 3;
 /** Número máximo de Jugadores admitido por las reglas del Modo Básico. */
@@ -130,6 +150,8 @@ export interface Jugador {
   id: string;
   /** Nombre registrado, entre 1 y 20 caracteres, único en la Partida. */
   nombre: string;
+  /** Leyenda opcional del alias (tooltip en la UI). */
+  descripcion?: string;
   /** Cartas de Bolsillo del Jugador, o null mientras no se reparten. */
   bolsillo: [Carta, Carta] | null;
 }
@@ -146,14 +168,28 @@ export interface EstadoGolpe {
   comunitarias: Carta[];
   /** Estado de las Fichas del Golpe. */
   fichas: EstadoFichas;
+  /** Ids de los jugadores que han confirmado su ficha en la ronda actual. Arranca vacío en cada ronda. */
+  confirmados: string[];
 }
 
 /** Estado autoritativo completo de la Partida. */
+/** Observador de la Partida que no participa en el juego. */
+export interface Espectador {
+  /** Identificador único del espectador (sessionId del servidor). */
+  id: string;
+  /** Nombre registrado del espectador. */
+  nombre: string;
+  /** Leyenda opcional del alias (tooltip en la UI). */
+  descripcion?: string;
+}
+
 export interface EstadoPartida {
   /** Fase actual de la Partida. */
   fase: FasePartida;
   /** Jugadores de la Partida (3..6). */
   jugadores: Jugador[];
+  /** Observadores conectados que no juegan (opcional; por defecto ninguno). */
+  espectadores?: Espectador[];
   /** Golpe en curso, o null en LOBBY/FINALIZADA. */
   golpeActual: EstadoGolpe | null;
   /** Número de Golpes ya jugados (0..5). */
@@ -166,6 +202,8 @@ export interface EstadoPartida {
   resultado: ResultadoPartida | null;
   /** Semilla para el barajado determinista. */
   semilla: Semilla;
+  /** Ajustes del modo de juego (opciones configuradas en el Lobby). */
+  ajustes?: AjustesPartida;
 }
 
 // ===========================================================================
@@ -211,6 +249,7 @@ export type CodigoError =
   | 'NOMBRE_INVALIDO' // 2.2
   | 'PARTIDA_COMPLETA' // 2.3
   | 'JUGADORES_INSUFICIENTES' // 2.4
+  | 'JUGADOR_DESCONECTADO' // lobby: inicio con miembros offline
   | 'PARTIDA_EN_CURSO' // 1.5
   | 'PARTIDA_FINALIZADA' // 1.8
   | 'FICHA_NO_DISPONIBLE' // 5.5, 6.5

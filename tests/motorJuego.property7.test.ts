@@ -63,11 +63,14 @@ describe('Property 7: Inicio de Partida y secuencia de Rondas', () => {
             estado = resultado.estado;
           });
 
-          // Con todas las Fichas tomadas, avanzar a la siguiente Ronda.
-          const avance = aplicarAccion(estado, { tipo: 'AVANZAR' });
-          expect(avance.ok).toBe(true);
-          if (!avance.ok) return;
-          estado = avance.estado;
+          // Con todas las Fichas tomadas, cada jugador confirma su ficha.
+          // Al confirmar el último, la ronda avanza automáticamente.
+          for (let j = 0; j < estado.jugadores.length; j++) {
+            const confirmacion = aplicarAccion(estado, { tipo: 'CONFIRMAR', jugadorId: estado.jugadores[j]!.id });
+            expect(confirmacion.ok).toBe(true);
+            if (!confirmacion.ok) return;
+            estado = confirmacion.estado;
+          }
 
           // La Ronda resultante es la siguiente en la secuencia exacta.
           expect(estado.golpeActual!.ronda).toBe(SECUENCIA_RONDAS[paso + 1]);

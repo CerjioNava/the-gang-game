@@ -16,6 +16,7 @@
 // _Requirements: 4.2, 4.6, 4.7, 10.3, 10.4_
 
 import {
+  type AjustesPartida,
   type Carta,
   type ErrorJuego,
   type EstadoFichas,
@@ -52,8 +53,20 @@ export interface JugadorVisible {
   id: string;
   /** Nombre registrado del Jugador. */
   nombre: string;
+  /** Leyenda del alias para tooltip, si existe. */
+  descripcion?: string;
   /** Cartas de Bolsillo visibles, ocultas o aún no repartidas. */
   bolsillo: BolsilloVisible;
+  /** Indica si el Jugador tiene una conexión activa con el Servidor_Local. */
+  conectado: boolean;
+}
+
+/** Proyección de un espectador en la vista de la Partida. */
+export interface EspectadorVisible {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  conectado: boolean;
 }
 
 /**
@@ -70,6 +83,8 @@ export interface VistaGolpe {
   comunitarias: Carta[];
   /** Estado de las Fichas del Golpe (información pública). */
   fichas: EstadoFichas;
+  /** Ids de los jugadores que han confirmado su ficha en la ronda actual. */
+  confirmados: string[];
 }
 
 /**
@@ -97,6 +112,14 @@ export interface VistaPartida {
   alarmasRojas: number;
   /** Resultado final de la Partida, o null si no ha finalizado. */
   resultado: ResultadoPartida | null;
+  /** Ajustes del modo de juego (visibles para que el cliente los muestre). */
+  ajustes?: AjustesPartida;
+  /** Id del Jugador anfitrión (el que creó la partida / primer jugador). */
+  anfitrionId?: string | undefined;
+  /** Espectadores conectados a la Partida. */
+  espectadores: EspectadorVisible[];
+  /** Indica si la perspectiva actual es un espectador (no juega). */
+  esEspectador: boolean;
 }
 
 // ===========================================================================
@@ -165,7 +188,9 @@ function proyectarJugador(
   return {
     id: jugador.id,
     nombre: jugador.nombre,
+    ...(jugador.descripcion !== undefined ? { descripcion: jugador.descripcion } : {}),
     bolsillo,
+    conectado: true,
   };
 }
 
@@ -193,10 +218,19 @@ export function proyectarEstadoPara(
   jugadorId: string,
 ): VistaPartida {
   const revelarTodos = bolsillosRevelados(estado);
+  const listaEspectadores = estado.espectadores ?? [];
+  const esEspectador = listaEspectadores.some((e) => e.id === jugadorId);
 
   const jugadores = estado.jugadores.map((jugador) =>
     proyectarJugador(jugador, jugadorId, revelarTodos),
   );
+
+  const espectadores: EspectadorVisible[] = listaEspectadores.map((e) => ({
+    id: e.id,
+    nombre: e.nombre,
+    ...(e.descripcion !== undefined ? { descripcion: e.descripcion } : {}),
+    conectado: true,
+  }));
 
   const golpeActual: VistaGolpe | null =
     estado.golpeActual === null
@@ -206,17 +240,49 @@ export function proyectarEstadoPara(
           ronda: estado.golpeActual.ronda,
           comunitarias: [...estado.golpeActual.comunitarias],
           fichas: estado.golpeActual.fichas,
+          confirmados: [...estado.golpeActual.confirmados],
         };
 
   return {
     fase: estado.fase,
     perspectivaJugadorId: jugadorId,
     jugadores,
+    espectadores,
+    esEspectador,
     golpeActual,
     golpesJugados: estado.golpesJugados,
     bovedasDoradas: estado.bovedasDoradas,
     alarmasRojas: estado.alarmasRojas,
     resultado: estado.resultado,
+    ...(estado.ajustes !== undefined ? { ajustes: estado.ajustes } : {}),
+  };
+}
+
+/**
+ * Enriquece una vista proyectada con el estado de conexión de cada Jugador.
+ *
+ * El dominio puro no conoce las sesiones WebSocket; la capa de transporte
+ * construye un mapa `jugadorId → conectado` desde el Gestor de Sesiones y lo
+ * aplica aquí antes de difundir la vista a los clientes.
+ *
+ * @param vista Vista personalizada base.
+ * @param conexionPorJugador Mapa de conexión por identificador de Jugador.
+ * @returns Vista con el campo `conectado` actualizado en cada Jugador.
+ */
+export function aplicarEstadoConexion(
+  vista: VistaPartida,
+  conexionPorJugador: ReadonlyMap<string, boolean>,
+): VistaPartida {
+  return {
+    ...vista,
+    jugadores: vista.jugadores.map((jugador) => ({
+      ...jugador,
+      conectado: conexionPorJugador.get(jugador.id) ?? jugador.conectado,
+    })),
+    espectadores: vista.espectadores.map((espectador) => ({
+      ...espectador,
+      conectado: conexionPorJugador.get(espectador.id) ?? espectador.conectado,
+    })),
   };
 }
 

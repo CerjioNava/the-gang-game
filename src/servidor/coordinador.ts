@@ -38,9 +38,11 @@ import {
   type Accion,
 } from '../dominio/motorJuego';
 import {
+  abandonarEspectador,
   abandonarJugador,
+  registrarEspectador,
   registrarJugador,
-  validarInicio,
+  validarInicioConConectividad,
 } from '../dominio/lobby';
 import {
   proyectarEstadoPara,
@@ -54,6 +56,8 @@ import {
   type EventoJuego,
   type Ficha,
   type Semilla,
+  type AjustesPartida,
+  AJUSTES_POR_DEFECTO,
 } from '../dominio/modelos';
 import { type MensajeEntrante, type MensajeSaliente } from './tipos';
 
@@ -67,12 +71,16 @@ import { type MensajeEntrante, type MensajeSaliente } from './tipos';
  * `IGNORADO` con un error genérico solo al emisor.
  */
 export const MensajeCliente = {
-  /** Registrarse en el Lobby. payload: `{ nombre: string }`. */
+  /** Registrarse en el Lobby o como espectador. payload: `{ nombre: string, rol?: 'JUGADOR' | 'ESPECTADOR' }`. */
   UNIRSE: 'UNIRSE',
   /** Abandonar el Lobby antes del inicio. payload: ninguno. */
   ABANDONAR: 'ABANDONAR',
-  /** Iniciar la Partida (requiere 3..6 Jugadores). payload: ninguno. */
+  /** Expulsar a un miembro de la banda (solo anfitrión, solo en LOBBY). payload: `{ jugadorId: string }`. */
+  EXPULSAR: 'EXPULSAR',
+  /** Iniciar la Partida (requiere 3..6 Jugadores conectados). payload: ninguno. */
   INICIAR: 'INICIAR',
+  /** Configurar ajustes del modo de juego (solo en LOBBY). payload: `{ sinKickers: boolean }`. */
+  CONFIGURAR_AJUSTES: 'CONFIGURAR_AJUSTES',
   /** Avanzar de Ronda o iniciar el Showdown. payload: ninguno. */
   AVANZAR: 'AVANZAR',
   /** Resolver el Showdown del Golpe. payload: ninguno. */
@@ -117,10 +125,16 @@ export const MensajeServidor = {
  *   error genérico SOLO al emisor; el estado no cambió.
  */
 export type ResultadoCoordinador =
-  | { clase: 'DIFUNDIR'; eventos: EventoJuego[] }
+  | { clase: 'DIFUNDIR'; eventos: EventoJuego[]; sesionesARetirar?: string[] }
   | { clase: 'ERROR'; error: ErrorJuego }
   | { clase: 'PRIVADO'; mensaje: MensajeSaliente }
   | { clase: 'IGNORADO'; error: ErrorJuego };
+
+/** Contexto de transporte que el Coordinador necesita para algunas operaciones. */
+export interface ContextoCoordinador {
+  /** Mapa jugadorId → conectado, construido desde el Gestor de Sesiones. */
+  conexionPorJugador?: ReadonlyMap<string, boolean>;
+}
 
 /** Opciones de configuración del Coordinador. */
 export interface OpcionesCoordinador {
@@ -181,10 +195,20 @@ export class Coordinador {
   /** Estado autoritativo de la Partida. Nunca se muta in situ; se reemplaza. */
   #estado: EstadoPartida;
   readonly #generarSemilla: () => Semilla;
+  /** Ajustes del modo de juego configurados en el Lobby. */
+  #ajustes: AjustesPartida;
+  /** Id del Jugador anfitrión (el primero en unirse al Lobby). */
+  #anfitrionId: string | null = null;
 
   constructor(opciones: OpcionesCoordinador = {}) {
     this.#generarSemilla = opciones.generarSemilla ?? (() => Date.now());
     this.#estado = Coordinador.#estadoLobbyInicial();
+    this.#ajustes = { ...AJUSTES_POR_DEFECTO };
+  }
+
+  /** Devuelve el id del anfitrión (el primer jugador registrado en el Lobby). */
+  obtenerAnfitrionId(): string | null {
+    return this.#anfitrionId;
   }
 
   /** Construye el estado inicial en fase LOBBY, sin Jugadores ni Golpe. */
@@ -192,6 +216,7 @@ export class Coordinador {
     return {
       fase: 'LOBBY',
       jugadores: [],
+      espectadores: [],
       golpeActual: null,
       golpesJugados: 0,
       bovedasDoradas: 0,
@@ -215,7 +240,8 @@ export class Coordinador {
    * usa para enviar a cada cliente su propia vista.
    */
   obtenerVistaPara(jugadorId: string): VistaPartida {
-    return proyectarEstadoPara(this.#estado, jugadorId);
+    const vista = proyectarEstadoPara(this.#estado, jugadorId);
+    return { ...vista, anfitrionId: this.#anfitrionId ?? undefined };
   }
 
   /**
@@ -233,6 +259,7 @@ export class Coordinador {
   procesarMensaje(
     jugadorId: string,
     mensaje: MensajeEntrante,
+    contexto: ContextoCoordinador = {},
   ): ResultadoCoordinador {
     if (!esObjeto(mensaje) || typeof mensaje.tipo !== 'string') {
       return {
@@ -246,20 +273,69 @@ export class Coordinador {
         return this.#unirse(jugadorId, mensaje.payload);
       case MensajeCliente.ABANDONAR:
         return this.#abandonar(jugadorId);
-      case MensajeCliente.INICIAR:
-        return this.#iniciar();
-      case MensajeCliente.AVANZAR:
-        return this.#aplicar({ tipo: 'AVANZAR' });
-      case MensajeCliente.RESOLVER_SHOWDOWN:
+      case MensajeCliente.EXPULSAR: {
+        const rechazoExpulsar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoExpulsar !== null) {
+          return rechazoExpulsar;
+        }
+        return this.#expulsar(jugadorId, mensaje.payload);
+      }
+      case MensajeCliente.INICIAR: {
+        const rechazoIniciar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoIniciar !== null) {
+          return rechazoIniciar;
+        }
+        return this.#iniciar(contexto);
+      }
+      case MensajeCliente.CONFIGURAR_AJUSTES: {
+        const rechazoAjustes = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoAjustes !== null) {
+          return rechazoAjustes;
+        }
+        return this.#configurarAjustes(mensaje.payload);
+      }
+      case MensajeCliente.AVANZAR: {
+        const rechazoAvanzar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoAvanzar !== null) {
+          return rechazoAvanzar;
+        }
+        return this.#aplicar({ tipo: 'CONFIRMAR', jugadorId });
+      }
+      case MensajeCliente.RESOLVER_SHOWDOWN: {
+        const rechazoShowdown = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoShowdown !== null) {
+          return rechazoShowdown;
+        }
         return this.#aplicar({ tipo: 'RESOLVER_SHOWDOWN' });
-      case MensajeCliente.TOMAR_FICHA:
+      }
+      case MensajeCliente.TOMAR_FICHA: {
+        const rechazoTomar = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoTomar !== null) {
+          return rechazoTomar;
+        }
         return this.#tomarFicha(jugadorId, mensaje.payload);
-      case MensajeCliente.INTERCAMBIAR_CENTRO:
+      }
+      case MensajeCliente.INTERCAMBIAR_CENTRO: {
+        const rechazoCentro = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoCentro !== null) {
+          return rechazoCentro;
+        }
         return this.#intercambiarCentro(jugadorId, mensaje.payload);
-      case MensajeCliente.INTERCAMBIAR_JUGADOR:
+      }
+      case MensajeCliente.INTERCAMBIAR_JUGADOR: {
+        const rechazoJugador = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoJugador !== null) {
+          return rechazoJugador;
+        }
         return this.#intercambiarJugador(jugadorId, mensaje.payload);
-      case MensajeCliente.SOLICITAR_CARTAS:
+      }
+      case MensajeCliente.SOLICITAR_CARTAS: {
+        const rechazoCartas = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoCartas !== null) {
+          return rechazoCartas;
+        }
         return this.#solicitarCartas(jugadorId, mensaje.payload);
+      }
       default:
         return {
           clase: 'IGNORADO',
@@ -274,13 +350,30 @@ export class Coordinador {
   // Operaciones de Lobby
   // -------------------------------------------------------------------------
 
+  #esEspectador(jugadorId: string): boolean {
+    return (this.#estado.espectadores ?? []).some((e) => e.id === jugadorId);
+  }
+
+  #rechazarSiEspectador(jugadorId: string): ResultadoCoordinador | null {
+    if (!this.#esEspectador(jugadorId)) {
+      return null;
+    }
+    return {
+      clase: 'ERROR',
+      error: {
+        codigo: 'ACCION_NO_PERMITIDA',
+        mensaje: 'Los espectadores solo pueden observar; no pueden realizar esta acción.',
+      },
+    };
+  }
+
   #unirse(jugadorId: string, payload: unknown): ResultadoCoordinador {
-    if (this.#estado.fase !== 'LOBBY') {
+    if (this.#estado.fase === 'FINALIZADA') {
       return {
         clase: 'ERROR',
         error: {
-          codigo: 'PARTIDA_EN_CURSO',
-          mensaje: 'No es posible unirse: la Partida ya está en marcha.',
+          codigo: 'PARTIDA_FINALIZADA',
+          mensaje: 'El golpe ya terminó: no puedes unirte a esta Partida.',
         },
       };
     }
@@ -291,20 +384,83 @@ export class Coordinador {
       };
     }
 
+    const rol =
+      payload['rol'] === 'ESPECTADOR' ? ('ESPECTADOR' as const) : ('JUGADOR' as const);
+
+    if (rol === 'ESPECTADOR') {
+      return this.#unirseEspectador(jugadorId, payload['nombre'], payload['descripcion']);
+    }
+
+    if (this.#estado.fase !== 'LOBBY') {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'PARTIDA_EN_CURSO',
+          mensaje: 'No es posible unirse como jugador: la Partida ya está en marcha.',
+        },
+      };
+    }
+
+    const espectadores = this.#estado.espectadores ?? [];
+    const descripcion =
+      typeof payload['descripcion'] === 'string' ? payload['descripcion'] : undefined;
     const resultado = registrarJugador(
       this.#estado.jugadores,
       payload['nombre'],
       jugadorId,
+      espectadores,
+      descripcion,
     );
     if (!resultado.ok) {
       return { clase: 'ERROR', error: resultado.error };
     }
 
     this.#estado = { ...this.#estado, jugadores: resultado.jugadores };
+
+    if (this.#anfitrionId === null) {
+      this.#anfitrionId = jugadorId;
+    }
+
+    return { clase: 'DIFUNDIR', eventos: [] };
+  }
+
+  #unirseEspectador(
+    jugadorId: string,
+    nombre: string,
+    descripcionRaw?: unknown,
+  ): ResultadoCoordinador {
+    if (this.#estado.jugadores.some((j) => j.id === jugadorId)) {
+      return {
+        clase: 'ERROR',
+        error: errorGenerico('Ya estás registrado como miembro de la banda.'),
+      };
+    }
+
+    const espectadoresActuales = this.#estado.espectadores ?? [];
+    const descripcion = typeof descripcionRaw === 'string' ? descripcionRaw : undefined;
+    const resultado = registrarEspectador(
+      espectadoresActuales,
+      this.#estado.jugadores,
+      nombre,
+      jugadorId,
+      descripcion,
+    );
+    if (!resultado.ok) {
+      return { clase: 'ERROR', error: resultado.error };
+    }
+
+    this.#estado = { ...this.#estado, espectadores: resultado.espectadores };
     return { clase: 'DIFUNDIR', eventos: [] };
   }
 
   #abandonar(jugadorId: string): ResultadoCoordinador {
+    const espectadores = this.#estado.espectadores ?? [];
+    if (espectadores.some((e) => e.id === jugadorId)) {
+      const restantes = abandonarEspectador(espectadores, jugadorId);
+      this.#estado = { ...this.#estado, espectadores: restantes };
+      return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [jugadorId] };
+    }
+
     if (this.#estado.fase !== 'LOBBY') {
       return {
         clase: 'ERROR',
@@ -325,10 +481,91 @@ export class Coordinador {
     }
 
     this.#estado = { ...this.#estado, jugadores };
+    if (this.#anfitrionId === jugadorId) {
+      this.#anfitrionId = jugadores[0]?.id ?? null;
+    }
+    return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [jugadorId] };
+  }
+
+  #expulsar(anfitrionId: string, payload: unknown): ResultadoCoordinador {
+    if (this.#estado.fase !== 'LOBBY') {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'Solo se puede expulsar miembros antes de dar el golpe.',
+        },
+      };
+    }
+    if (this.#anfitrionId === null || anfitrionId !== this.#anfitrionId) {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'Solo el anfitrión puede expulsar miembros de la banda.',
+        },
+      };
+    }
+    if (!esObjeto(payload) || typeof payload['jugadorId'] !== 'string') {
+      return {
+        clase: 'IGNORADO',
+        error: errorGenerico('Falta el miembro que se desea expulsar.'),
+      };
+    }
+    const objetivoId = payload['jugadorId'];
+
+    const espectadores = this.#estado.espectadores ?? [];
+    const espectadoresTrasExpulsion = abandonarEspectador(espectadores, objetivoId);
+    if (espectadoresTrasExpulsion.length !== espectadores.length) {
+      this.#estado = { ...this.#estado, espectadores: espectadoresTrasExpulsion };
+      return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [objetivoId] };
+    }
+
+    if (objetivoId === anfitrionId) {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'No puedes expulsarte a ti mismo; abandona la banda si quieres marcharte.',
+        },
+      };
+    }
+
+    const jugadores = abandonarJugador(this.#estado.jugadores, objetivoId);
+    if (jugadores.length === this.#estado.jugadores.length) {
+      return {
+        clase: 'ERROR',
+        error: errorGenerico('Ese miembro no está en la banda.'),
+      };
+    }
+
+    this.#estado = { ...this.#estado, jugadores };
+    return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [objetivoId] };
+  }
+
+  #configurarAjustes(payload: unknown): ResultadoCoordinador {
+    if (this.#estado.fase !== 'LOBBY') {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'Los ajustes solo pueden cambiarse antes de dar el golpe.',
+        },
+      };
+    }
+    if (!esObjeto(payload) || typeof payload['sinKickers'] !== 'boolean') {
+      return {
+        clase: 'IGNORADO',
+        error: errorGenerico('Ajustes inválidos: falta sinKickers (boolean).'),
+      };
+    }
+
+    this.#ajustes = { sinKickers: payload['sinKickers'] };
+    this.#estado = { ...this.#estado, ajustes: this.#ajustes };
     return { clase: 'DIFUNDIR', eventos: [] };
   }
 
-  #iniciar(): ResultadoCoordinador {
+  #iniciar(contexto: ContextoCoordinador): ResultadoCoordinador {
     if (this.#estado.fase === 'EN_CURSO') {
       return {
         clase: 'ERROR',
@@ -348,12 +585,24 @@ export class Coordinador {
       };
     }
 
-    const errorInicio = validarInicio(this.#estado.jugadores);
+    const conexionPorJugador = contexto.conexionPorJugador ?? new Map<string, boolean>();
+    const errorInicio = validarInicioConConectividad(
+      this.#estado.jugadores,
+      conexionPorJugador,
+    );
     if (errorInicio !== null) {
       return { clase: 'ERROR', error: errorInicio };
     }
 
-    this.#estado = iniciarPartida(this.#estado.jugadores, this.#generarSemilla());
+    const espectadores = this.#estado.espectadores ?? [];
+    this.#estado = {
+      ...iniciarPartida(
+        this.#estado.jugadores,
+        this.#generarSemilla(),
+        this.#ajustes,
+      ),
+      espectadores,
+    };
     return {
       clase: 'DIFUNDIR',
       eventos: [

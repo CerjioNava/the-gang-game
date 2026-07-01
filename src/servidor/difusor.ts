@@ -37,6 +37,7 @@
 // _Requirements: 2.6, 6.6, 9.3_
 
 import type { VistaPartida } from '../dominio/proyeccion';
+import { aplicarEstadoConexion } from '../dominio/proyeccion';
 import type { Coordinador } from './coordinador';
 import type { GestorSesiones } from './sesiones';
 import type { ConexionCliente, MensajeSaliente } from './tipos';
@@ -105,6 +106,10 @@ export class Difusor {
    * @returns El número de clientes a los que se difundió el estado.
    */
   difundirEstado(): number {
+    const conexionPorJugador = new Map(
+      this.#gestor.sesiones().map((sesion) => [sesion.sessionId, sesion.conectado]),
+    );
+
     let enviados = 0;
     for (const sesion of this.#gestor.sesiones()) {
       if (!sesion.conectado || sesion.conexionId === null) {
@@ -115,9 +120,10 @@ export class Difusor {
         continue;
       }
       // sessionId === jugadorId (ver nota de correspondencia de identidad).
-      const vista: VistaPartida = this.#coordinador.obtenerVistaPara(
+      const vistaBase: VistaPartida = this.#coordinador.obtenerVistaPara(
         sesion.sessionId,
       );
+      const vista = aplicarEstadoConexion(vistaBase, conexionPorJugador);
       const mensaje: MensajeSaliente = {
         tipo: TIPO_MENSAJE_ESTADO,
         payload: vista,

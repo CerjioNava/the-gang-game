@@ -18,7 +18,7 @@ import type { VistaPartida } from '../dominio/proyeccion';
 
 // Re-exportamos los tipos de vista que el cliente consume, para que el resto de
 // módulos del cliente importen desde un único punto.
-export type { VistaPartida, JugadorVisible } from '../dominio/proyeccion';
+export type { VistaPartida, JugadorVisible, EspectadorVisible } from '../dominio/proyeccion';
 export type { Carta, Ficha, ColorFicha, Palo } from '../dominio/modelos';
 
 // ===========================================================================
@@ -29,7 +29,9 @@ export type { Carta, Ficha, ColorFicha, Palo } from '../dominio/modelos';
 export const TipoMensajeCliente = {
   UNIRSE: 'UNIRSE',
   ABANDONAR: 'ABANDONAR',
+  EXPULSAR: 'EXPULSAR',
   INICIAR: 'INICIAR',
+  CONFIGURAR_AJUSTES: 'CONFIGURAR_AJUSTES',
   AVANZAR: 'AVANZAR',
   RESOLVER_SHOWDOWN: 'RESOLVER_SHOWDOWN',
   TOMAR_FICHA: 'TOMAR_FICHA',
@@ -49,14 +51,31 @@ export interface MensajeCliente {
  * de tipeo en los `tipo` y mantiene los payloads consistentes con el Coordinador.
  */
 export const mensajes = {
-  unirse(nombre: string): MensajeCliente {
-    return { tipo: TipoMensajeCliente.UNIRSE, payload: { nombre } };
+  unirse(
+    nombre: string,
+    rol: 'JUGADOR' | 'ESPECTADOR' = 'JUGADOR',
+    descripcion?: string,
+  ): MensajeCliente {
+    const payload: { nombre: string; rol: typeof rol; descripcion?: string } = {
+      nombre,
+      rol,
+    };
+    if (descripcion !== undefined && descripcion.length > 0) {
+      payload.descripcion = descripcion;
+    }
+    return { tipo: TipoMensajeCliente.UNIRSE, payload };
   },
   abandonar(): MensajeCliente {
     return { tipo: TipoMensajeCliente.ABANDONAR };
   },
+  expulsarMiembro(jugadorId: string): MensajeCliente {
+    return { tipo: TipoMensajeCliente.EXPULSAR, payload: { jugadorId } };
+  },
   iniciar(): MensajeCliente {
     return { tipo: TipoMensajeCliente.INICIAR };
+  },
+  configurarAjustes(ajustes: { sinKickers: boolean }): MensajeCliente {
+    return { tipo: TipoMensajeCliente.CONFIGURAR_AJUSTES, payload: ajustes };
   },
   avanzar(): MensajeCliente {
     return { tipo: TipoMensajeCliente.AVANZAR };
