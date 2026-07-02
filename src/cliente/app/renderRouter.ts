@@ -1,18 +1,18 @@
-import type { EstadoCliente } from '../estado';
-import { participanteRegistrado } from '../estado';
-import type { AccionesLobby } from '../vistas/lobby';
-import type { AccionesMesa } from '../vistas/mesa';
+import type { EstadoCliente } from "../estado";
+import { participanteRegistrado } from "../estado";
+import type { AccionesLobby } from "../vistas/lobby";
+import type { AccionesMesa } from "../vistas/mesa";
 import {
   renderizarEntradaEspectador,
   renderizarLobby,
   renderizarReconexion,
-} from '../vistas/lobby';
-import { renderizarMesa } from '../vistas/mesa';
+} from "../vistas/lobby";
+import { renderizarMesa } from "../vistas/mesa";
 import {
   renderizarResultado,
   renderizarShowdownResuelto,
-} from '../vistas/showdown';
-import type { ElementosShell } from './shell';
+} from "../vistas/showdown";
+import type { ElementosShell } from "./shell";
 
 export interface AccionesApp {
   lobby: AccionesLobby;
@@ -21,27 +21,27 @@ export interface AccionesApp {
 
 function escapar(texto: string): string {
   return texto
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function renderHud(estado: EstadoCliente, shell: ElementosShell): void {
   const conexion = estado.conexion;
-  const textoConexion: Record<EstadoCliente['conexion'], string> = {
-    CONECTANDO: 'Conectando…',
-    CONECTADO: 'En línea',
-    DESCONECTADO: 'Reconectando…',
+  const textoConexion: Record<EstadoCliente["conexion"], string> = {
+    CONECTANDO: "Conectando…",
+    CONECTADO: "En línea",
+    DESCONECTADO: "Reconectando…",
   };
   const vista = estado.vista;
-  const fase = vista?.fase ?? 'LOBBY';
+  const fase = vista?.fase ?? "LOBBY";
   const tituloFase =
-    fase === 'LOBBY'
-      ? 'El escondite'
-      : fase === 'EN_CURSO'
+    fase === "LOBBY"
+      ? "El escondite"
+      : fase === "EN_CURSO"
         ? `Golpe ${(vista?.golpesJugados ?? 0) + 1}`
-        : 'Fin del golpe';
+        : "Fin del golpe";
 
   shell.hud.innerHTML = `
     <div class="app-shell__hud-inner">
@@ -58,15 +58,25 @@ function renderHud(estado: EstadoCliente, shell: ElementosShell): void {
 function renderAlerta(estado: EstadoCliente, shell: ElementosShell): void {
   if (estado.error === null) {
     shell.alerta.hidden = true;
-    shell.alerta.textContent = '';
+    shell.alerta.textContent = "";
     return;
   }
   shell.alerta.hidden = false;
   shell.alerta.textContent = estado.error;
 }
 
-function renderFooter(_estado: EstadoCliente, shell: ElementosShell): void {
-  if (shell.footer.querySelector('#app-footer-ranking') !== null) {
+function renderFooter(estado: EstadoCliente, shell: ElementosShell): void {
+  const fase = estado.vista?.fase ?? "LOBBY";
+  shell.footer.classList.toggle(
+    "app-shell__footer--oculto",
+    fase === "EN_CURSO",
+  );
+  if (fase === "EN_CURSO") {
+    shell.footer.innerHTML = "";
+    return;
+  }
+
+  if (shell.footer.querySelector("#app-footer-ranking") !== null) {
     return;
   }
   shell.footer.innerHTML = `
@@ -88,24 +98,24 @@ export function renderizarFase(
 
   const main = shell.main;
   const vista = estado.vista;
-  const fase = vista?.fase ?? 'LOBBY';
+  const fase = vista?.fase ?? "LOBBY";
   const registrado = participanteRegistrado(estado);
 
-  if (fase === 'EN_CURSO' && main.querySelector('.mesa-poker') !== null) {
+  if (fase === "EN_CURSO" && main.querySelector(".mesa-poker") !== null) {
     renderizarMesa(main, estado, acciones.mesa);
     return;
   }
 
-  main.innerHTML = '';
+  main.innerHTML = "";
 
-  if (!registrado && fase !== 'LOBBY') {
-    if (fase === 'FINALIZADA') {
+  if (!registrado && fase !== "LOBBY") {
+    if (fase === "FINALIZADA") {
       main.innerHTML = `
         <section class="lobby lobby--espectador lobby--horizontal">
           <h2>El golpe ha terminado</h2>
           <p class="lobby__intro">Esta Partida ya finalizó. No es posible unirse como espectador.</p>
         </section>`;
-    } else if (fase === 'EN_CURSO') {
+    } else if (fase === "EN_CURSO") {
       renderizarReconexion(main, estado, acciones.lobby);
     } else {
       renderizarEntradaEspectador(main, estado, acciones.lobby);
@@ -113,27 +123,27 @@ export function renderizarFase(
     return;
   }
 
-  if (fase === 'LOBBY') {
+  if (fase === "LOBBY") {
     renderizarLobby(main, estado, acciones.lobby);
     return;
   }
 
-  if (fase === 'EN_CURSO') {
+  if (fase === "EN_CURSO") {
     renderizarMesa(main, estado, acciones.mesa);
     return;
   }
 
-  if (fase === 'FINALIZADA' && vista !== null) {
-    const wrap = document.createElement('div');
-    wrap.className = 'pantalla-fin';
+  if (fase === "FINALIZADA" && vista !== null) {
+    const wrap = document.createElement("div");
+    wrap.className = "pantalla-fin";
     if (vista.ultimoShowdownResuelto !== null) {
-      const sd = document.createElement('div');
-      sd.className = 'pantalla-fin__showdown';
+      const sd = document.createElement("div");
+      sd.className = "pantalla-fin__showdown";
       renderizarShowdownResuelto(sd, vista);
       wrap.appendChild(sd);
     }
-    const res = document.createElement('div');
-    res.className = 'pantalla-fin__resultado';
+    const res = document.createElement("div");
+    res.className = "pantalla-fin__resultado";
     renderizarResultado(res, vista, acciones.mesa);
     wrap.appendChild(res);
     main.appendChild(wrap);

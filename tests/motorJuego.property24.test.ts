@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { fc, verificarPropiedad } from './pbt';
-import { aplicarAccion } from '../src/dominio/motorJuego';
-import { resolverShowdown } from '../src/dominio/showdown';
+import { describe, it, expect } from "vitest";
+import { fc, verificarPropiedad } from "./pbt";
+import { aplicarAccion } from "../src/dominio/motorJuego";
+import { resolverShowdown } from "../src/dominio/showdown";
 import {
   PALOS,
   VALOR_MINIMO,
@@ -12,7 +12,7 @@ import {
   type EstadoPartida,
   type Ficha,
   type Jugador,
-} from '../src/dominio/modelos';
+} from "../src/dominio/modelos";
 
 // Prueba basada en propiedades del Motor_Juego de The Gang (fast-check + Vitest).
 // _Requirements: 8.6, 8.7_
@@ -51,65 +51,70 @@ function crearJugadores(n: number): Jugador[] {
  */
 const genEstadoShowdown: fc.Arbitrary<EstadoPartida> = genN.chain((n) => {
   const cartasNecesarias = 5 + 2 * n; // 5 comunitarias + 2 por Jugador
-  return fc.record({
-    cartas: fc.shuffledSubarray(BARAJA_COMPLETA, {
-      minLength: cartasNecesarias,
-      maxLength: cartasNecesarias,
-    }),
-    // Permutación de los valores de estrella 1..N para las Fichas rojas.
-    estrellas: fc.shuffledSubarray(
-      Array.from({ length: n }, (_, i) => i + 1),
-      { minLength: n, maxLength: n },
-    ),
-    bovedasDoradas: fc.integer({ min: 0, max: 1 }),
-    alarmasRojas: fc.integer({ min: 0, max: 1 }),
-  }).map(({ cartas, estrellas, bovedasDoradas, alarmasRojas }) => {
-    const comunitarias = cartas.slice(0, 5);
-    const jugadoresBase = crearJugadores(n);
+  return fc
+    .record({
+      cartas: fc.shuffledSubarray(BARAJA_COMPLETA, {
+        minLength: cartasNecesarias,
+        maxLength: cartasNecesarias,
+      }),
+      // Permutación de los valores de estrella 1..N para las Fichas rojas.
+      estrellas: fc.shuffledSubarray(
+        Array.from({ length: n }, (_, i) => i + 1),
+        { minLength: n, maxLength: n },
+      ),
+      bovedasDoradas: fc.integer({ min: 0, max: 1 }),
+      alarmasRojas: fc.integer({ min: 0, max: 1 }),
+    })
+    .map(({ cartas, estrellas, bovedasDoradas, alarmasRojas }) => {
+      const comunitarias = cartas.slice(0, 5);
+      const jugadoresBase = crearJugadores(n);
 
-    const jugadores: Jugador[] = jugadoresBase.map((jugador, indice) => {
-      const inicio = 5 + indice * 2;
-      const bolsillo: [Carta, Carta] = [cartas[inicio]!, cartas[inicio + 1]!];
-      return { ...jugador, bolsillo };
+      const jugadores: Jugador[] = jugadoresBase.map((jugador, indice) => {
+        const inicio = 5 + indice * 2;
+        const bolsillo: [Carta, Carta] = [cartas[inicio]!, cartas[inicio + 1]!];
+        return { ...jugador, bolsillo };
+      });
+
+      const porJugador: Record<string, Ficha[]> = {};
+      jugadores.forEach((jugador, indice) => {
+        porJugador[jugador.id] = [
+          { color: "ROJO", estrellas: estrellas[indice]! },
+        ];
+      });
+
+      const fichas: EstadoFichas = {
+        numJugadores: n,
+        centro: [],
+        porJugador,
+        colorActivo: "ROJO",
+      };
+
+      const golpeActual: EstadoGolpe = {
+        numero: 1,
+        ronda: "SHOWDOWN",
+        baraja: [],
+        comunitarias,
+        fichas,
+        confirmados: [],
+        reveladoShowdown: jugadores.length,
+      };
+
+      const estado: EstadoPartida = {
+        fase: "EN_CURSO",
+        jugadores,
+        golpeActual,
+        golpesJugados: 0,
+        bovedasDoradas,
+        alarmasRojas,
+        resultado: null,
+        semilla: "property24",
+      };
+      return estado;
     });
-
-    const porJugador: Record<string, Ficha[]> = {};
-    jugadores.forEach((jugador, indice) => {
-      porJugador[jugador.id] = [{ color: 'ROJO', estrellas: estrellas[indice]! }];
-    });
-
-    const fichas: EstadoFichas = {
-      numJugadores: n,
-      centro: [],
-      porJugador,
-      colorActivo: 'ROJO',
-    };
-
-    const golpeActual: EstadoGolpe = {
-      numero: 1,
-      ronda: 'SHOWDOWN',
-      baraja: [],
-      comunitarias,
-      fichas,
-      confirmados: [],
-    };
-
-    const estado: EstadoPartida = {
-      fase: 'EN_CURSO',
-      jugadores,
-      golpeActual,
-      golpesJugados: 0,
-      bovedasDoradas,
-      alarmasRojas,
-      resultado: null,
-      semilla: 'property24',
-    };
-    return estado;
-  });
 });
 
-describe('Property 24: El resultado del Golpe actualiza Bóvedas o Alarmas en exactamente uno', () => {
-  it('un Golpe exitoso suma +1 Bóveda (Alarmas sin cambios) y uno fracasado suma +1 Alarma (Bóvedas sin cambios)', () => {
+describe("Property 24: El resultado del Golpe actualiza Bóvedas o Alarmas en exactamente uno", () => {
+  it("un Golpe exitoso suma +1 Bóveda (Alarmas sin cambios) y uno fracasado suma +1 Alarma (Bóvedas sin cambios)", () => {
     verificarPropiedad(
       fc.property(genEstadoShowdown, (estado) => {
         // Predecir el resultado del Showdown a partir de la lógica pura.
@@ -121,7 +126,7 @@ describe('Property 24: El resultado del Golpe actualiza Bóvedas o Alarmas en ex
         const bovedasAntes = estado.bovedasDoradas;
         const alarmasAntes = estado.alarmasRojas;
 
-        const resultado = aplicarAccion(estado, { tipo: 'RESOLVER_SHOWDOWN' });
+        const resultado = aplicarAccion(estado, { tipo: "RESOLVER_SHOWDOWN" });
 
         // La resolución del Showdown en SHOWDOWN siempre es una acción válida.
         expect(resultado.ok).toBe(true);
@@ -141,10 +146,10 @@ describe('Property 24: El resultado del Golpe actualiza Bóvedas o Alarmas en ex
 
         // El evento de Showdown reportado coincide con el resultado predicho.
         const eventoShowdown = resultado.eventos.find(
-          (e) => e.tipo === 'SHOWDOWN_RESUELTO',
+          (e) => e.tipo === "SHOWDOWN_RESUELTO",
         );
         expect(eventoShowdown).toBeDefined();
-        if (eventoShowdown && eventoShowdown.tipo === 'SHOWDOWN_RESUELTO') {
+        if (eventoShowdown && eventoShowdown.tipo === "SHOWDOWN_RESUELTO") {
           expect(eventoShowdown.exito).toBe(exitoEsperado);
         }
       }),

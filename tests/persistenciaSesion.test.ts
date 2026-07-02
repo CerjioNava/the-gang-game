@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   cargarCredencial,
@@ -8,17 +8,24 @@ import {
   limpiarCredencial,
   mensajeUnirseDesdeCredencial,
   persistirDesdeVista,
-} from '../src/cliente/persistenciaSesion';
-import { mensajes } from '../src/cliente/protocolo';
-import { PERSPECTIVA_INVITADO } from '../src/dominio/proyeccion';
-import type { VistaPartida } from '../src/cliente/protocolo';
-import { BOLSILLO_OCULTO } from '../src/dominio/proyeccion';
+} from "../src/cliente/persistenciaSesion";
+import { mensajes } from "../src/cliente/protocolo";
+import { PERSPECTIVA_INVITADO } from "../src/dominio/proyeccion";
+import type { VistaPartida } from "../src/cliente/protocolo";
+import { BOLSILLO_OCULTO } from "../src/dominio/proyeccion";
 
 function vistaJugadorRegistrado(): VistaPartida {
   return {
-    fase: 'EN_CURSO',
-    perspectivaJugadorId: 'j1',
-    jugadores: [{ id: 'j1', nombre: 'El Cerebro', bolsillo: BOLSILLO_OCULTO, conectado: true }],
+    fase: "EN_CURSO",
+    perspectivaJugadorId: "j1",
+    jugadores: [
+      {
+        id: "j1",
+        nombre: "El Cerebro",
+        bolsillo: BOLSILLO_OCULTO,
+        conectado: true,
+      },
+    ],
     espectadores: [],
     esEspectador: false,
     golpeActual: null,
@@ -27,27 +34,28 @@ function vistaJugadorRegistrado(): VistaPartida {
     alarmasRojas: 0,
     resultado: null,
     historialGolpes: [],
+    historialShowdowns: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
     terminacionPorDesconexion: null,
   };
 }
 
-describe('persistenciaSesion', () => {
+describe("persistenciaSesion", () => {
   beforeEach(() => {
     sessionStorage.clear();
   });
 
-  it('guarda y carga la credencial de un jugador', () => {
+  it("guarda y carga la credencial de un jugador", () => {
     persistirDesdeVista(vistaJugadorRegistrado());
 
     expect(cargarCredencial()).toEqual({
-      nombre: 'El Cerebro',
-      rol: 'JUGADOR',
+      nombre: "El Cerebro",
+      rol: "JUGADOR",
     });
   });
 
-  it('no persiste la vista invitado', () => {
+  it("no persiste la vista invitado", () => {
     persistirDesdeVista({
       ...vistaJugadorRegistrado(),
       perspectivaJugadorId: PERSPECTIVA_INVITADO,
@@ -56,7 +64,7 @@ describe('persistenciaSesion', () => {
     expect(cargarCredencial()).toBeNull();
   });
 
-  it('limpia la credencial almacenada', () => {
+  it("limpia la credencial almacenada", () => {
     persistirDesdeVista(vistaJugadorRegistrado());
     limpiarCredencial();
 
@@ -64,20 +72,20 @@ describe('persistenciaSesion', () => {
     expect(cargarCredencial()).toBeNull();
   });
 
-  it('construye UNIRSE de jugador desde credencial', () => {
+  it("construye UNIRSE de jugador desde credencial", () => {
     const mensaje = mensajeUnirseDesdeCredencial({
-      nombre: 'La Sombra',
-      rol: 'JUGADOR',
-      descripcion: 'Perfil',
+      nombre: "La Sombra",
+      rol: "JUGADOR",
+      descripcion: "Perfil",
     });
 
-    expect(mensaje).toEqual(mensajes.unirse('La Sombra', 'JUGADOR', 'Perfil'));
+    expect(mensaje).toEqual(mensajes.unirse("La Sombra", "JUGADOR", "Perfil"));
   });
 
-  it('construye UNIRSE de espectador desde credencial', () => {
+  it("construye UNIRSE de espectador desde credencial", () => {
     const mensaje = mensajeUnirseDesdeCredencial({
-      nombre: 'Espectador 1',
-      rol: 'ESPECTADOR',
+      nombre: "Espectador 1",
+      rol: "ESPECTADOR",
     });
 
     expect(mensaje).toEqual(mensajes.unirseEspectador());

@@ -15,7 +15,7 @@ import {
   type Espectador,
   type EstadoPartida,
   type Jugador,
-} from './modelos';
+} from "./modelos";
 
 // ===========================================================================
 // Constantes del Lobby
@@ -42,8 +42,7 @@ export const DESCRIPCION_LONGITUD_MAX = 120;
  * original se conserva sin cambios (criterios 2.2, 2.3).
  */
 export type ResultadoRegistro =
-  | { ok: true; jugadores: Jugador[] }
-  | { ok: false; error: ErrorJuego };
+  { ok: true; jugadores: Jugador[] } | { ok: false; error: ErrorJuego };
 
 // ===========================================================================
 // Validación de nombres
@@ -70,10 +69,10 @@ export function validarNombre(
     excluirJugadorId !== undefined
       ? jugadores.filter((j) => j.id !== excluirJugadorId)
       : jugadores;
-  if (typeof nombre !== 'string' || nombre.trim().length === 0) {
+  if (typeof nombre !== "string" || nombre.trim().length === 0) {
     return {
-      codigo: 'NOMBRE_INVALIDO',
-      mensaje: 'El nombre no puede estar vacío.',
+      codigo: "NOMBRE_INVALIDO",
+      mensaje: "El nombre no puede estar vacío.",
     };
   }
 
@@ -82,22 +81,22 @@ export function validarNombre(
     nombre.length > NOMBRE_LONGITUD_MAX
   ) {
     return {
-      codigo: 'NOMBRE_INVALIDO',
+      codigo: "NOMBRE_INVALIDO",
       mensaje: `El nombre debe tener entre ${NOMBRE_LONGITUD_MIN} y ${NOMBRE_LONGITUD_MAX} caracteres.`,
     };
   }
 
   if (jugadoresParaUnicidad.some((j) => j.nombre === nombre)) {
     return {
-      codigo: 'NOMBRE_INVALIDO',
-      mensaje: 'Ese alias ya lo usa otro miembro de la banda.',
+      codigo: "NOMBRE_INVALIDO",
+      mensaje: "Ese alias ya lo usa otro miembro de la banda.",
     };
   }
 
   if (espectadores.some((e) => e.nombre === nombre)) {
     return {
-      codigo: 'NOMBRE_INVALIDO',
-      mensaje: 'Ese alias ya lo usa otro espectador.',
+      codigo: "NOMBRE_INVALIDO",
+      mensaje: "Ese alias ya lo usa otro espectador.",
     };
   }
 
@@ -107,7 +106,9 @@ export function validarNombre(
 /**
  * Normaliza una descripción opcional: recorta espacios y devuelve undefined si queda vacía.
  */
-export function normalizarDescripcion(descripcion: string | undefined): string | undefined {
+export function normalizarDescripcion(
+  descripcion: string | undefined,
+): string | undefined {
   if (descripcion === undefined) {
     return undefined;
   }
@@ -118,13 +119,15 @@ export function normalizarDescripcion(descripcion: string | undefined): string |
 /**
  * Valida la descripción opcional de un alias.
  */
-export function validarDescripcion(descripcion: string | undefined): ErrorJuego | null {
+export function validarDescripcion(
+  descripcion: string | undefined,
+): ErrorJuego | null {
   if (descripcion === undefined) {
     return null;
   }
   if (descripcion.length > DESCRIPCION_LONGITUD_MAX) {
     return {
-      codigo: 'NOMBRE_INVALIDO',
+      codigo: "NOMBRE_INVALIDO",
       mensaje: `La descripción no puede superar ${DESCRIPCION_LONGITUD_MAX} caracteres.`,
     };
   }
@@ -158,8 +161,8 @@ export function registrarJugador(
     return {
       ok: false,
       error: {
-        codigo: 'PARTIDA_COMPLETA',
-        mensaje: 'La banda ya está completa: no caben más de 6 miembros.',
+        codigo: "PARTIDA_COMPLETA",
+        mensaje: "La banda ya está completa: no caben más de 6 miembros.",
       },
     };
   }
@@ -202,8 +205,7 @@ export function abandonarJugador(
  * Resultado de registrar un espectador.
  */
 export type ResultadoRegistroEspectador =
-  | { ok: true; espectadores: Espectador[] }
-  | { ok: false; error: ErrorJuego };
+  { ok: true; espectadores: Espectador[] } | { ok: false; error: ErrorJuego };
 
 /**
  * Registra un espectador que observa la Partida sin jugar.
@@ -219,8 +221,8 @@ export function registrarEspectador(
     return {
       ok: false,
       error: {
-        codigo: 'PARTIDA_COMPLETA',
-        mensaje: 'No caben más espectadores en esta Partida.',
+        codigo: "PARTIDA_COMPLETA",
+        mensaje: "No caben más espectadores en esta Partida.",
       },
     };
   }
@@ -275,8 +277,8 @@ export function actualizarIdentidadJugador(
     return {
       ok: false,
       error: {
-        codigo: 'ACCION_NO_PERMITIDA',
-        mensaje: 'No estás registrado como miembro de la banda.',
+        codigo: "ACCION_NO_PERMITIDA",
+        mensaje: "No estás registrado como miembro de la banda.",
       },
     };
   }
@@ -330,9 +332,7 @@ export function abandonarEspectador(
  * {@link MAX_JUGADORES} Jugadores (criterios 2.4, 3.1).
  */
 export function puedeIniciar(jugadores: readonly Jugador[]): boolean {
-  return (
-    jugadores.length >= MIN_JUGADORES && jugadores.length <= MAX_JUGADORES
-  );
+  return jugadores.length >= MIN_JUGADORES && jugadores.length <= MAX_JUGADORES;
 }
 
 /**
@@ -340,10 +340,12 @@ export function puedeIniciar(jugadores: readonly Jugador[]): boolean {
  * `ErrorJuego` con código `JUGADORES_INSUFICIENTES` cuando hay menos de
  * {@link MIN_JUGADORES} Jugadores (criterio 2.4).
  */
-export function validarInicio(jugadores: readonly Jugador[]): ErrorJuego | null {
+export function validarInicio(
+  jugadores: readonly Jugador[],
+): ErrorJuego | null {
   if (jugadores.length < MIN_JUGADORES) {
     return {
-      codigo: 'JUGADORES_INSUFICIENTES',
+      codigo: "JUGADORES_INSUFICIENTES",
       mensaje: `Se necesitan al menos ${MIN_JUGADORES} miembros para dar el golpe.`,
     };
   }
@@ -377,7 +379,7 @@ export function validarInicioConConectividad(
   const offline = jugadores.find((j) => conexionPorJugador.get(j.id) !== true);
   if (offline !== undefined) {
     return {
-      codigo: 'JUGADOR_DESCONECTADO',
+      codigo: "JUGADOR_DESCONECTADO",
       mensaje: `${offline.nombre} está desconectado; todos deben estar activos para dar el golpe.`,
     };
   }
@@ -393,7 +395,9 @@ export function puedeIniciarCompleto(
   jugadores: readonly Jugador[],
   conexionPorJugador: ReadonlyMap<string, boolean>,
 ): boolean {
-  return puedeIniciar(jugadores) && todosConectados(jugadores, conexionPorJugador);
+  return (
+    puedeIniciar(jugadores) && todosConectados(jugadores, conexionPorJugador)
+  );
 }
 
 /**
@@ -402,7 +406,7 @@ export function puedeIniciarCompleto(
  */
 export function volverAlLobby(estado: EstadoPartida): EstadoPartida {
   return {
-    fase: 'LOBBY',
+    fase: "LOBBY",
     jugadores: estado.jugadores.map((j) => ({ ...j, bolsillo: null })),
     espectadores: estado.espectadores ?? [],
     golpeActual: null,
@@ -413,6 +417,7 @@ export function volverAlLobby(estado: EstadoPartida): EstadoPartida {
     semilla: 0,
     ajustes: estado.ajustes ?? AJUSTES_POR_DEFECTO,
     historialGolpes: [],
+    historialShowdowns: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
     terminacionPorDesconexion: null,
@@ -425,7 +430,7 @@ export function iniciarTerminacionPorDesconexion(
   jugadorId: string,
   ahoraMs: number,
 ): EstadoPartida {
-  if (estado.fase !== 'EN_CURSO') {
+  if (estado.fase !== "EN_CURSO") {
     return estado;
   }
   const jugador = estado.jugadores.find((j) => j.id === jugadorId);
@@ -443,7 +448,9 @@ export function iniciarTerminacionPorDesconexion(
 }
 
 /** Cancela la terminación pendiente por desconexión. */
-export function cancelarTerminacionPorDesconexion(estado: EstadoPartida): EstadoPartida {
+export function cancelarTerminacionPorDesconexion(
+  estado: EstadoPartida,
+): EstadoPartida {
   if (estado.terminacionPorDesconexion == null) {
     return estado;
   }

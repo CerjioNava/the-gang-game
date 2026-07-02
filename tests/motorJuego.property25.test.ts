@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { fc, verificarPropiedad } from './pbt';
+import { describe, it, expect } from "vitest";
+import { fc, verificarPropiedad } from "./pbt";
 import type {
   Carta,
   EstadoFichas,
@@ -7,11 +7,11 @@ import type {
   EstadoPartida,
   Jugador,
   ManoEvaluada,
-} from '../src/dominio/modelos';
-import { construirBaraja } from '../src/dominio/baraja';
-import { evaluar, comparar } from '../src/dominio/evaluador';
-import { resolverShowdown } from '../src/dominio/showdown';
-import { aplicarAccion } from '../src/dominio/motorJuego';
+} from "../src/dominio/modelos";
+import { construirBaraja } from "../src/dominio/baraja";
+import { evaluar, comparar } from "../src/dominio/evaluador";
+import { resolverShowdown } from "../src/dominio/showdown";
+import { aplicarAccion } from "../src/dominio/motorJuego";
 
 // Prueba basada en propiedades del Motor_Juego de The Gang (fast-check + Vitest).
 // _Requirements: 9.1, 9.2_
@@ -45,8 +45,11 @@ const genCartasDistintas: fc.Arbitrary<Carta[]> = fc
   .map((indices) => indices.map((i) => BARAJA[i] as Carta));
 
 /** Escenario de fin de Partida a verificar. */
-type Escenario = 'VICTORIA' | 'DERROTA';
-const genEscenario: fc.Arbitrary<Escenario> = fc.constantFrom('VICTORIA', 'DERROTA');
+type Escenario = "VICTORIA" | "DERROTA";
+const genEscenario: fc.Arbitrary<Escenario> = fc.constantFrom(
+  "VICTORIA",
+  "DERROTA",
+);
 
 /**
  * Construye un estado de Partida en SHOWDOWN listo para resolver, repartiendo
@@ -81,7 +84,9 @@ function construirEstadoShowdown(
   const manos: ManoEvaluada[] = jugadores.map((jugador) => {
     const resultado = evaluar(jugador.bolsillo, comunitarias);
     if (!resultado.ok) {
-      throw new Error('Cartas insuficientes para construir el escenario de Showdown.');
+      throw new Error(
+        "Cartas insuficientes para construir el escenario de Showdown.",
+      );
     }
     return resultado.mano;
   });
@@ -89,7 +94,9 @@ function construirEstadoShowdown(
   // Índices de Jugadores ordenados de forma ascendente por fuerza de la mano.
   const indicesPorFuerza = jugadores
     .map((_, i) => i)
-    .sort((a, b) => comparar(manos[a] as ManoEvaluada, manos[b] as ManoEvaluada));
+    .sort((a, b) =>
+      comparar(manos[a] as ManoEvaluada, manos[b] as ManoEvaluada),
+    );
 
   // Asignación de estrellas rojas (1..N) a cada Jugador según el escenario.
   const estrellasPorJugador = new Array<number>(n);
@@ -97,80 +104,95 @@ function construirEstadoShowdown(
     // VICTORIA: estrella creciente con la fuerza (más débil = 1 estrella).
     // DERROTA: estrella decreciente con la fuerza (más fuerte = 1 estrella).
     estrellasPorJugador[idxJugador] =
-      escenario === 'VICTORIA' ? posicion + 1 : n - posicion;
+      escenario === "VICTORIA" ? posicion + 1 : n - posicion;
   });
 
-  const porJugador: Record<string, import('../src/dominio/modelos').Ficha[]> = {};
+  const porJugador: Record<string, import("../src/dominio/modelos").Ficha[]> =
+    {};
   jugadores.forEach((jugador, i) => {
-    porJugador[jugador.id] = [{ color: 'ROJO', estrellas: estrellasPorJugador[i] as number }];
+    porJugador[jugador.id] = [
+      { color: "ROJO", estrellas: estrellasPorJugador[i] as number },
+    ];
   });
 
   const fichas: EstadoFichas = {
     numJugadores: n,
     centro: [],
     porJugador,
-    colorActivo: 'ROJO',
+    colorActivo: "ROJO",
   };
 
   const golpe: EstadoGolpe = {
     numero: 1,
-    ronda: 'SHOWDOWN',
+    ronda: "SHOWDOWN",
     baraja: [],
     comunitarias,
     fichas,
     confirmados: [],
+    reveladoShowdown: jugadores.length,
   };
 
   const estado: EstadoPartida = {
-    fase: 'EN_CURSO',
+    fase: "EN_CURSO",
     jugadores,
     golpeActual: golpe,
     golpesJugados: 0,
     // VICTORIA: ya hay 2 Bóvedas; un Golpe exitoso alcanza la tercera.
-    bovedasDoradas: escenario === 'VICTORIA' ? 2 : 0,
+    bovedasDoradas: escenario === "VICTORIA" ? 2 : 0,
     // DERROTA: ya hay 2 Alarmas; un Golpe fracasado alcanza la tercera.
-    alarmasRojas: escenario === 'DERROTA' ? 2 : 0,
+    alarmasRojas: escenario === "DERROTA" ? 2 : 0,
     resultado: null,
-    semilla: 'property25',
+    semilla: "property25",
   };
 
   return { estado, jugadores, golpe };
 }
 
-describe('Property 25: Condiciones de fin de Partida', () => {
-  it('tres Bóvedas doradas finalizan en VICTORIA y tres Alarmas rojas en DERROTA', () => {
+describe("Property 25: Condiciones de fin de Partida", () => {
+  it("tres Bóvedas doradas finalizan en VICTORIA y tres Alarmas rojas en DERROTA", () => {
     verificarPropiedad(
-      fc.property(genN, genCartasDistintas, genEscenario, (n, cartas, escenario) => {
-        const { estado, jugadores, golpe } = construirEstadoShowdown(n, cartas, escenario);
+      fc.property(
+        genN,
+        genCartasDistintas,
+        genEscenario,
+        (n, cartas, escenario) => {
+          const { estado, jugadores, golpe } = construirEstadoShowdown(
+            n,
+            cartas,
+            escenario,
+          );
 
-        // Confirma que el showdown produce el signo esperado para el escenario.
-        // En DERROTA, si todas las manos empatan (sin inversión posible) el
-        // Golpe sería exitoso; esos casos se descartan para aislar la propiedad.
-        const showdown = resolverShowdown(jugadores, golpe);
-        const exitoEsperado = escenario === 'VICTORIA';
-        fc.pre(showdown.exito === exitoEsperado);
+          // Confirma que el showdown produce el signo esperado para el escenario.
+          // En DERROTA, si todas las manos empatan (sin inversión posible) el
+          // Golpe sería exitoso; esos casos se descartan para aislar la propiedad.
+          const showdown = resolverShowdown(jugadores, golpe);
+          const exitoEsperado = escenario === "VICTORIA";
+          fc.pre(showdown.exito === exitoEsperado);
 
-        const resultado = aplicarAccion(estado, { tipo: 'RESOLVER_SHOWDOWN' });
-        expect(resultado.ok).toBe(true);
-        if (!resultado.ok) {
-          return;
-        }
+          const resultado = aplicarAccion(estado, {
+            tipo: "RESOLVER_SHOWDOWN",
+          });
+          expect(resultado.ok).toBe(true);
+          if (!resultado.ok) {
+            return;
+          }
 
-        const nuevo = resultado.estado;
-        if (escenario === 'VICTORIA') {
-          // Al alcanzar exactamente tres Bóvedas doradas, la Partida finaliza con
-          // resultado de victoria (criterio 9.1).
-          expect(nuevo.bovedasDoradas).toBe(3);
-          expect(nuevo.resultado).toBe('VICTORIA');
-          expect(nuevo.fase).toBe('FINALIZADA');
-        } else {
-          // Al alcanzar exactamente tres Alarmas rojas, la Partida finaliza con
-          // resultado de derrota (criterio 9.2).
-          expect(nuevo.alarmasRojas).toBe(3);
-          expect(nuevo.resultado).toBe('DERROTA');
-          expect(nuevo.fase).toBe('FINALIZADA');
-        }
-      }),
+          const nuevo = resultado.estado;
+          if (escenario === "VICTORIA") {
+            // Al alcanzar exactamente tres Bóvedas doradas, la Partida finaliza con
+            // resultado de victoria (criterio 9.1).
+            expect(nuevo.bovedasDoradas).toBe(3);
+            expect(nuevo.resultado).toBe("VICTORIA");
+            expect(nuevo.fase).toBe("FINALIZADA");
+          } else {
+            // Al alcanzar exactamente tres Alarmas rojas, la Partida finaliza con
+            // resultado de derrota (criterio 9.2).
+            expect(nuevo.alarmasRojas).toBe(3);
+            expect(nuevo.resultado).toBe("DERROTA");
+            expect(nuevo.fase).toBe("FINALIZADA");
+          }
+        },
+      ),
       { numRuns: 200 },
     );
   });

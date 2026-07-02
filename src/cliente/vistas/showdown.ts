@@ -8,22 +8,22 @@ import {
   evaluar,
   resolverShowdown as evaluarShowdownDominio,
   type ManoEvaluada,
-} from '../../dominio';
-import type { Carta, EstadoGolpe, Jugador } from '../../dominio/modelos';
-import { BOLSILLO_OCULTO, type VistaGolpe, type VistaShowdownResuelto } from '../../dominio/proyeccion';
-import type { JugadorVisible, VistaPartida } from '../protocolo';
-import { cartaHtml } from './cartasHtml';
-import { fichaInsigniaHtml, fichaOrdenShowdownHtml } from './atoms/fichaHtml';
-import { estatusJugadorHtml } from './estatusJugador';
-import { NOMBRE_CATEGORIA } from './ranking';
-import { nombreConTooltipHtml } from './tooltipNombre';
+} from "../../dominio";
+import type { Carta, EstadoGolpe, Jugador } from "../../dominio/modelos";
+import { BOLSILLO_OCULTO, type VistaGolpe } from "../../dominio/proyeccion";
+import type { JugadorVisible, VistaPartida } from "../protocolo";
+import { cartaHtml } from "./cartasHtml";
+import { fichaInsigniaHtml, fichaOrdenShowdownHtml } from "./atoms/fichaHtml";
+import { estatusJugadorHtml } from "./estatusJugador";
+import { NOMBRE_CATEGORIA } from "./ranking";
+import { nombreConTooltipHtml } from "./tooltipNombre";
 
 function escapar(texto: string): string {
   return texto
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 interface PosicionShowdown {
@@ -31,10 +31,13 @@ interface PosicionShowdown {
   estrellasRojas: number;
 }
 
-function ordenarPorFichaRoja(vista: VistaPartida, golpe: VistaGolpe): PosicionShowdown[] {
+function ordenarPorFichaRoja(
+  vista: VistaPartida,
+  golpe: VistaGolpe,
+): PosicionShowdown[] {
   const posiciones: PosicionShowdown[] = vista.jugadores.map((jugador) => {
     const susFichas = golpe.fichas.porJugador[jugador.id] ?? [];
-    const fichaRoja = susFichas.find((f) => f.color === 'ROJO');
+    const fichaRoja = susFichas.find((f) => f.color === "ROJO");
     return {
       jugador,
       estrellasRojas: fichaRoja?.estrellas ?? 0,
@@ -44,13 +47,16 @@ function ordenarPorFichaRoja(vista: VistaPartida, golpe: VistaGolpe): PosicionSh
   return posiciones;
 }
 
-function categoriaManoTexto(jugador: JugadorVisible, golpe: VistaGolpe): string {
+function categoriaManoTexto(
+  jugador: JugadorVisible,
+  golpe: VistaGolpe,
+): string {
   if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
-    return 'Mano no disponible.';
+    return "Mano no disponible.";
   }
   const resultado = evaluar(jugador.bolsillo, golpe.comunitarias);
   if (!resultado.ok) {
-    return 'Faltan Cartas Comunitarias.';
+    return "Faltan Cartas Comunitarias.";
   }
   return NOMBRE_CATEGORIA[resultado.mano.categoria];
 }
@@ -63,8 +69,14 @@ interface PosicionFuerza {
 }
 
 /** Indica si todas las manos del showdown ya fueron reveladas. */
-export function showdownMesaCompleto(vista: VistaPartida, golpe: VistaGolpe): boolean {
-  return golpe.ronda === 'SHOWDOWN' && golpe.reveladoShowdown >= vista.jugadores.length;
+export function showdownMesaCompleto(
+  vista: VistaPartida,
+  golpe: VistaGolpe,
+): boolean {
+  return (
+    golpe.ronda === "SHOWDOWN" &&
+    golpe.reveladoShowdown >= vista.jugadores.length
+  );
 }
 
 /** Orden ascendente por fuerza de mano (rango verde 1 = más débil). */
@@ -111,16 +123,19 @@ function evaluarResultadoShowdown(vista: VistaPartida, golpe: VistaGolpe) {
   const jugadores: Jugador[] = vista.jugadores.map((j) => ({
     id: j.id,
     nombre: j.nombre,
-    descripcion: j.descripcion,
+    ...(j.descripcion !== undefined ? { descripcion: j.descripcion } : {}),
     bolsillo:
       j.bolsillo === null || j.bolsillo === BOLSILLO_OCULTO ? null : j.bolsillo,
   }));
-  if (jugadores.some((j) => j.bolsillo === null) || golpe.comunitarias.length < 5) {
+  if (
+    jugadores.some((j) => j.bolsillo === null) ||
+    golpe.comunitarias.length < 5
+  ) {
     return null;
   }
   const estadoGolpe: EstadoGolpe = {
     numero: golpe.numero,
-    ronda: 'SHOWDOWN',
+    ronda: "SHOWDOWN",
     baraja: [],
     comunitarias: [...golpe.comunitarias],
     fichas: golpe.fichas,
@@ -136,18 +151,18 @@ function celdaOrdenMesaHtml(
   indiceRojo: number,
   rangoVerde: number,
   esViolacion: boolean,
-  tipo: 'rojo' | 'verde',
+  tipo: "rojo" | "verde",
   estrellas: number,
 ): string {
   const categoria = categoriaManoTexto(posicion.jugador, golpe);
-  const desajuste = tipo === 'rojo' && rangoVerde !== indiceRojo + 1;
+  const desajuste = tipo === "rojo" && rangoVerde !== indiceRojo + 1;
   const clases = [
-    'showdown-mesa__celda',
-    desajuste ? 'showdown-mesa__celda--desajuste' : '',
-    esViolacion ? 'showdown-mesa__celda--violacion' : '',
+    "showdown-mesa__celda",
+    desajuste ? "showdown-mesa__celda--desajuste" : "",
+    esViolacion ? "showdown-mesa__celda--violacion" : "",
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 
   return `
     <li class="${clases}">
@@ -158,59 +173,76 @@ function celdaOrdenMesaHtml(
 }
 
 /** Bloque central en la mesa: orden revelado vs orden correcto + banner dramático. */
-export function htmlShowdownOrdenMesa(vista: VistaPartida, golpe: VistaGolpe): string {
+export function htmlShowdownOrdenMesa(
+  vista: VistaPartida,
+  golpe: VistaGolpe,
+): string {
   if (!showdownMesaCompleto(vista, golpe)) {
-    return '';
+    return "";
   }
 
   const evaluacion = evaluarResultadoShowdown(vista, golpe);
   const ordenFuerza = ordenarPorFuerzaMano(vista, golpe);
   if (evaluacion === null || ordenFuerza === null) {
-    return '';
+    return "";
   }
 
   const ordenRojo = ordenarPorFichaRoja(vista, golpe);
-  const rangoVerdePorId = new Map(ordenFuerza.map((p) => [p.jugador.id, p.rangoVerde]));
+  const rangoVerdePorId = new Map(
+    ordenFuerza.map((p) => [p.jugador.id, p.rangoVerde]),
+  );
   const posicionRojaPorId = new Map(ordenRojo.map((p, i) => [p.jugador.id, i]));
 
   let violacionIdx = -1;
   if (evaluacion.violacion !== null) {
-    violacionIdx = ordenRojo.findIndex((p) => p.jugador.id === evaluacion.violacion!.posterior);
+    violacionIdx = ordenRojo.findIndex(
+      (p) => p.jugador.id === evaluacion.violacion!.posterior,
+    );
   }
 
   const filasRojas = ordenRojo
     .map((posicion, indice) => {
       const rangoVerde = rangoVerdePorId.get(posicion.jugador.id) ?? indice + 1;
       const esViolacion = indice === violacionIdx;
-      const estrellas = posicion.estrellasRojas > 0 ? posicion.estrellasRojas : indice + 1;
-      return celdaOrdenMesaHtml(posicion, golpe, indice, rangoVerde, esViolacion, 'rojo', estrellas);
+      const estrellas =
+        posicion.estrellasRojas > 0 ? posicion.estrellasRojas : indice + 1;
+      return celdaOrdenMesaHtml(
+        posicion,
+        golpe,
+        indice,
+        rangoVerde,
+        esViolacion,
+        "rojo",
+        estrellas,
+      );
     })
-    .join('');
+    .join("");
 
   const filasVerdes = ordenFuerza
     .map((posicion) => {
       const posicionRoja: PosicionShowdown = {
         jugador: posicion.jugador,
         estrellasRojas:
-          ordenRojo.find((p) => p.jugador.id === posicion.jugador.id)?.estrellasRojas ??
-          posicion.rangoVerde,
+          ordenRojo.find((p) => p.jugador.id === posicion.jugador.id)
+            ?.estrellasRojas ?? posicion.rangoVerde,
       };
-      const indiceRojo = posicionRojaPorId.get(posicion.jugador.id) ?? posicion.rangoVerde - 1;
+      const indiceRojo =
+        posicionRojaPorId.get(posicion.jugador.id) ?? posicion.rangoVerde - 1;
       return celdaOrdenMesaHtml(
         posicionRoja,
         golpe,
         indiceRojo,
         posicion.rangoVerde,
         false,
-        'verde',
+        "verde",
         posicion.rangoVerde,
       );
     })
-    .join('');
+    .join("");
 
   const ayuda = evaluacion.exito
-    ? 'Orden correcto: la fuerza no decrece al revelar.'
-    : 'Orden incorrecto: una mano posterior es más débil que la anterior.';
+    ? "Orden correcto: la fuerza no decrece al revelar."
+    : "Orden incorrecto: una mano posterior es más débil que la anterior.";
 
   const banner = evaluacion.exito
     ? `<div class="showdown-mesa__banner showdown-mesa__banner--exito" role="status">
@@ -240,16 +272,21 @@ export function htmlShowdownOrdenMesa(vista: VistaPartida, golpe: VistaGolpe): s
 }
 
 /** Resumen del orden de revelado en la barra inferior (sin banner de resultado). */
-export function htmlResumenOrdenShowdown(vista: VistaPartida, golpe: VistaGolpe): string {
+export function htmlResumenOrdenShowdown(
+  vista: VistaPartida,
+  golpe: VistaGolpe,
+): string {
   const evaluacion = evaluarResultadoShowdown(vista, golpe);
   if (evaluacion === null) {
-    return '';
+    return "";
   }
 
   const orden = ordenarPorFichaRoja(vista, golpe);
   let violacionIdx = -1;
   if (evaluacion.violacion !== null) {
-    violacionIdx = orden.findIndex((p) => p.jugador.id === evaluacion.violacion!.posterior);
+    violacionIdx = orden.findIndex(
+      (p) => p.jugador.id === evaluacion.violacion!.posterior,
+    );
   }
 
   const filas = orden
@@ -257,19 +294,22 @@ export function htmlResumenOrdenShowdown(vista: VistaPartida, golpe: VistaGolpe)
       const categoria = categoriaManoTexto(posicion.jugador, golpe);
       const fichaHtml =
         posicion.estrellasRojas > 0
-          ? fichaInsigniaHtml({ color: 'ROJO', estrellas: posicion.estrellasRojas })
-          : '';
-      let marca = '✓';
-      let claseMarca = 'showdown-resumen__marca showdown-resumen__marca--ok';
+          ? fichaInsigniaHtml({
+              color: "ROJO",
+              estrellas: posicion.estrellasRojas,
+            })
+          : "";
+      let marca = "✓";
+      let claseMarca = "showdown-resumen__marca showdown-resumen__marca--ok";
       if (indice === 0) {
-        marca = '·';
-        claseMarca = 'showdown-resumen__marca';
+        marca = "·";
+        claseMarca = "showdown-resumen__marca";
       } else if (indice === violacionIdx) {
-        marca = '✗';
-        claseMarca = 'showdown-resumen__marca showdown-resumen__marca--error';
+        marca = "✗";
+        claseMarca = "showdown-resumen__marca showdown-resumen__marca--error";
       } else if (violacionIdx >= 0 && indice > violacionIdx) {
-        marca = '—';
-        claseMarca = 'showdown-resumen__marca';
+        marca = "—";
+        claseMarca = "showdown-resumen__marca";
       }
       return `
         <li class="showdown-resumen__fila">
@@ -279,11 +319,11 @@ export function htmlResumenOrdenShowdown(vista: VistaPartida, golpe: VistaGolpe)
           <span class="showdown-resumen__categoria">${escapar(categoria)}</span>
         </li>`;
     })
-    .join('');
+    .join("");
 
   const ayuda = evaluacion.exito
-    ? 'Orden correcto: la fuerza no decrece al revelar.'
-    : 'Orden incorrecto: una mano posterior es más débil que la anterior.';
+    ? "Orden correcto: la fuerza no decrece al revelar."
+    : "Orden incorrecto: una mano posterior es más débil que la anterior.";
 
   return `
     <div class="showdown-resumen" role="region" aria-label="Orden de revelado del Showdown">
@@ -294,10 +334,13 @@ export function htmlResumenOrdenShowdown(vista: VistaPartida, golpe: VistaGolpe)
 }
 
 /** Botones y resumen del Showdown en la barra inferior de la mesa. */
-export function htmlAccionesShowdown(vista: VistaPartida, esEspectador: boolean): string {
+export function htmlAccionesShowdown(
+  vista: VistaPartida,
+  esEspectador: boolean,
+): string {
   const golpe = vista.golpeActual;
-  if (golpe === null || golpe.ronda !== 'SHOWDOWN') {
-    return '';
+  if (golpe === null || golpe.ronda !== "SHOWDOWN") {
+    return "";
   }
 
   const total = vista.jugadores.length;
@@ -310,11 +353,11 @@ export function htmlAccionesShowdown(vista: VistaPartida, esEspectador: boolean)
     return `<p class="showdown__espera-resolver">Esperando a que un jugador cierre el showdown…</p>`;
   }
 
-  let boton = '';
+  let boton = "";
   if (revelado < total) {
     const siguienteId = golpe.ordenShowdown[revelado];
     const siguiente = vista.jugadores.find((j) => j.id === siguienteId);
-    const nombre = siguiente?.nombre ?? 'siguiente';
+    const nombre = siguiente?.nombre ?? "siguiente";
     boton = `
       <button type="button" id="boton-revelar-showdown" class="boton boton--golpe">
         Revelar mano de ${escapar(nombre)}
@@ -344,9 +387,12 @@ export function htmlBotonContinuarShowdown(esEspectador: boolean): string {
 }
 
 /** Categoría de mano para mostrar bajo las cartas de un asiento revelado. */
-export function htmlCategoriaAsientoShowdown(jugador: JugadorVisible, golpe: VistaGolpe): string {
+export function htmlCategoriaAsientoShowdown(
+  jugador: JugadorVisible,
+  golpe: VistaGolpe,
+): string {
   if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
-    return '';
+    return "";
   }
   const texto = categoriaManoTexto(jugador, golpe);
   return `<p class="asiento__categoria-mano">${escapar(texto)}</p>`;
@@ -361,13 +407,13 @@ export function renderizarShowdownResuelto(
 ): void {
   const resuelto = vista.ultimoShowdownResuelto;
   if (resuelto === null) {
-    contenedor.innerHTML = '';
+    contenedor.innerHTML = "";
     return;
   }
 
   const golpeVista: VistaGolpe = {
     numero: resuelto.numero,
-    ronda: 'SHOWDOWN',
+    ronda: "SHOWDOWN",
     comunitarias: resuelto.comunitarias,
     fichas: resuelto.fichas,
     confirmados: [],
@@ -383,7 +429,7 @@ export function renderizarShowdownResuelto(
   const orden = ordenarPorFichaRoja(vistaOrden, golpeVista);
   const filas = orden
     .map((posicion) => filaShowdownHtml(posicion, golpeVista))
-    .join('');
+    .join("");
 
   const bannerExito = resuelto.exito
     ? `<div class="showdown__resultado showdown__resultado--exito" role="status">
@@ -401,7 +447,10 @@ export function renderizarShowdownResuelto(
     </section>`;
 }
 
-function filaShowdownHtml(posicion: PosicionShowdown, golpe: VistaGolpe): string {
+function filaShowdownHtml(
+  posicion: PosicionShowdown,
+  golpe: VistaGolpe,
+): string {
   const { jugador, estrellasRojas } = posicion;
 
   let cartas: string;
@@ -409,14 +458,14 @@ function filaShowdownHtml(posicion: PosicionShowdown, golpe: VistaGolpe): string
     cartas = '<p class="mesa__sin-cartas">Sin Cartas de Bolsillo.</p>';
   } else {
     cartas = `<div class="cartas-fila cartas-fila--mini">${jugador.bolsillo
-      .map((c) => cartaHtml(c, 'mini'))
-      .join('')}</div>`;
+      .map((c) => cartaHtml(c, "mini"))
+      .join("")}</div>`;
   }
 
   const fichaRojaHtml =
     estrellasRojas > 0
-      ? fichaInsigniaHtml({ color: 'ROJO', estrellas: estrellasRojas })
-      : '';
+      ? fichaInsigniaHtml({ color: "ROJO", estrellas: estrellasRojas })
+      : "";
 
   return `
     <li class="showdown__jugador">
@@ -431,11 +480,11 @@ function filaShowdownHtml(posicion: PosicionShowdown, golpe: VistaGolpe): string
 
 function categoriaManoHtml(jugador: JugadorVisible, golpe: VistaGolpe): string {
   if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
-    return 'Mano no disponible.';
+    return "Mano no disponible.";
   }
   const resultado = evaluar(jugador.bolsillo, golpe.comunitarias);
   if (!resultado.ok) {
-    return 'Faltan Cartas Comunitarias para evaluar la mano.';
+    return "Faltan Cartas Comunitarias para evaluar la mano.";
   }
   const mano: ManoEvaluada = resultado.mano;
   return `Mejor mano: <strong>${NOMBRE_CATEGORIA[mano.categoria]}</strong>`;
@@ -450,38 +499,36 @@ export function renderizarResultado(
   vista: VistaPartida,
   acciones?: AccionesResultado,
 ): void {
-  const esVictoria = vista.resultado === 'VICTORIA';
-  const esDerrota = vista.resultado === 'DERROTA';
+  const esVictoria = vista.resultado === "VICTORIA";
+  const esDerrota = vista.resultado === "DERROTA";
 
   let titulo: string;
   let mensaje: string;
   let claseEstado: string;
 
   if (esVictoria) {
-    titulo = '¡Golpe maestro!';
-    mensaje = 'El equipo abrió las tres bóvedas.';
-    claseEstado = 'resultado--victoria';
+    titulo = "¡Golpe maestro!";
+    mensaje = "El equipo abrió las tres bóvedas.";
+    claseEstado = "resultado--victoria";
   } else if (esDerrota) {
-    titulo = 'El golpe ha fracasado';
-    mensaje = 'Las alarmas os delataron…';
-    claseEstado = 'resultado--derrota';
+    titulo = "El golpe ha fracasado";
+    mensaje = "Las alarmas os delataron…";
+    claseEstado = "resultado--derrota";
   } else {
-    titulo = 'El golpe ha terminado';
-    mensaje = 'La banda se dispersa en la noche.';
-    claseEstado = '';
+    titulo = "El golpe ha terminado";
+    mensaje = "La banda se dispersa en la noche.";
+    claseEstado = "";
   }
 
   const yoId = vista.perspectivaJugadorId;
   const botonTerminar =
-    acciones !== undefined &&
-    !vista.esEspectador &&
-    vista.anfitrionId === yoId
+    acciones !== undefined && !vista.esEspectador && vista.anfitrionId === yoId
       ? `<div class="resultado__acciones">
           <button type="button" id="boton-terminar-partida" class="boton boton--alias">
             Terminar partida
           </button>
         </div>`
-      : '';
+      : "";
 
   contenedor.innerHTML = `
     <section class="resultado ${claseEstado}">
@@ -501,6 +548,6 @@ export function renderizarResultado(
     </section>`;
 
   contenedor
-    .querySelector<HTMLButtonElement>('#boton-terminar-partida')
-    ?.addEventListener('click', () => acciones?.terminarPartida());
+    .querySelector<HTMLButtonElement>("#boton-terminar-partida")
+    ?.addEventListener("click", () => acciones?.terminarPartida());
 }

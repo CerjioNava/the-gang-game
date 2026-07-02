@@ -10,7 +10,7 @@
 // ===========================================================================
 
 /** Los cuatro palos de la baraja francesa. */
-export type Palo = 'PICAS' | 'CORAZONES' | 'DIAMANTES' | 'TREBOLES';
+export type Palo = "PICAS" | "CORAZONES" | "DIAMANTES" | "TREBOLES";
 
 /**
  * Carta de la baraja.
@@ -32,21 +32,26 @@ export const VALOR_MINIMO = 2;
 export const VALOR_MAXIMO = 14;
 
 /** Lista canónica de los cuatro palos. */
-export const PALOS: readonly Palo[] = ['PICAS', 'CORAZONES', 'DIAMANTES', 'TREBOLES'];
+export const PALOS: readonly Palo[] = [
+  "PICAS",
+  "CORAZONES",
+  "DIAMANTES",
+  "TREBOLES",
+];
 
 // ===========================================================================
 // Fichas
 // ===========================================================================
 
 /** Color de una Ficha; cada color corresponde a una Ronda del Golpe. */
-export type ColorFicha = 'BLANCO' | 'AMARILLO' | 'NARANJA' | 'ROJO';
+export type ColorFicha = "BLANCO" | "AMARILLO" | "NARANJA" | "ROJO";
 
 /** Lista canónica de los colores de Ficha, en orden de Ronda. */
 export const COLORES_FICHA: readonly ColorFicha[] = [
-  'BLANCO',
-  'AMARILLO',
-  'NARANJA',
-  'ROJO',
+  "BLANCO",
+  "AMARILLO",
+  "NARANJA",
+  "ROJO",
 ];
 
 /**
@@ -105,10 +110,10 @@ export interface EstadoFichas {
 // ===========================================================================
 
 /** Fase de la Partida. */
-export type FasePartida = 'LOBBY' | 'EN_CURSO' | 'FINALIZADA';
+export type FasePartida = "LOBBY" | "EN_CURSO" | "FINALIZADA";
 
 /** Rondas de un Golpe, en orden. */
-export type Ronda = 'PRE_FLOP' | 'FLOP' | 'TURN' | 'RIVER' | 'SHOWDOWN';
+export type Ronda = "PRE_FLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
 
 /**
  * Semilla para el barajado determinista y reproducible en pruebas.
@@ -117,7 +122,7 @@ export type Ronda = 'PRE_FLOP' | 'FLOP' | 'TURN' | 'RIVER' | 'SHOWDOWN';
 export type Semilla = number | string;
 
 /** Resultado final de la Partida. */
-export type ResultadoPartida = 'VICTORIA' | 'DERROTA';
+export type ResultadoPartida = "VICTORIA" | "DERROTA";
 
 /** Resumen de un Golpe ya resuelto (historial). */
 export interface EntradaHistorialGolpe {
@@ -248,6 +253,8 @@ export interface EstadoPartida {
   ajustes?: AjustesPartida;
   /** Golpes ya resueltos con su resultado (historial). */
   historialGolpes?: EntradaHistorialGolpe[];
+  /** Snapshots completos de showdowns resueltos, consultables durante la Partida. */
+  historialShowdowns?: SnapshotShowdownResuelto[];
   /** Resultado del último Golpe resuelto (banner en la UI). */
   ultimoResultadoGolpe?: ResultadoGolpeReciente | null;
   /** Showdown recién resuelto, visible hasta el siguiente movimiento de fichas. */
@@ -296,17 +303,17 @@ export interface ResultadoShowdown {
 
 /** Códigos de error de juego (acciones inválidas). */
 export type CodigoError =
-  | 'NOMBRE_INVALIDO' // 2.2
-  | 'PARTIDA_COMPLETA' // 2.3
-  | 'JUGADORES_INSUFICIENTES' // 2.4
-  | 'JUGADOR_DESCONECTADO' // lobby: inicio con miembros offline
-  | 'PARTIDA_EN_CURSO' // 1.5
-  | 'PARTIDA_FINALIZADA' // 1.8
-  | 'FICHA_NO_DISPONIBLE' // 5.5, 6.5
-  | 'FICHA_COLOR_DUPLICADO' // 6.2
-  | 'FICHA_FUERA_DE_RANGO' // 5.5
-  | 'ACCION_NO_PERMITIDA' // 4.7, 10.4 (solicitar cartas ajenas)
-  | 'CARTAS_INSUFICIENTES'; // 7.5
+  | "NOMBRE_INVALIDO" // 2.2
+  | "PARTIDA_COMPLETA" // 2.3
+  | "JUGADORES_INSUFICIENTES" // 2.4
+  | "JUGADOR_DESCONECTADO" // lobby: inicio con miembros offline
+  | "PARTIDA_EN_CURSO" // 1.5
+  | "PARTIDA_FINALIZADA" // 1.8
+  | "FICHA_NO_DISPONIBLE" // 5.5, 6.5
+  | "FICHA_COLOR_DUPLICADO" // 6.2
+  | "FICHA_FUERA_DE_RANGO" // 5.5
+  | "ACCION_NO_PERMITIDA" // 4.7, 10.4 (solicitar cartas ajenas)
+  | "CARTAS_INSUFICIENTES"; // 7.5
 
 /** Error de juego devuelto por la lógica pura ante una acción inválida. */
 export interface ErrorJuego {
@@ -318,14 +325,14 @@ export interface ErrorJuego {
 
 /** Evento de juego emitido al aplicar una acción válida. */
 export type EventoJuego =
-  | { tipo: 'PARTIDA_INICIADA' }
-  | { tipo: 'GOLPE_INICIADO'; numero: number }
-  | { tipo: 'RONDA_AVANZADA'; ronda: Ronda }
-  | { tipo: 'FICHA_TOMADA'; jugadorId: string; ficha: Ficha }
-  | { tipo: 'FICHA_INTERCAMBIADA'; jugadorId: string }
-  | { tipo: 'SHOWDOWN_REVELADO'; jugadorId: string }
-  | { tipo: 'SHOWDOWN_RESUELTO'; exito: boolean }
-  | { tipo: 'PARTIDA_FINALIZADA'; resultado: ResultadoPartida };
+  | { tipo: "PARTIDA_INICIADA" }
+  | { tipo: "GOLPE_INICIADO"; numero: number }
+  | { tipo: "RONDA_AVANZADA"; ronda: Ronda }
+  | { tipo: "FICHA_TOMADA"; jugadorId: string; ficha: Ficha }
+  | { tipo: "FICHA_INTERCAMBIADA"; jugadorId: string }
+  | { tipo: "SHOWDOWN_REVELADO"; jugadorId: string }
+  | { tipo: "SHOWDOWN_RESUELTO"; exito: boolean }
+  | { tipo: "PARTIDA_FINALIZADA"; resultado: ResultadoPartida };
 
 /** Resultado de aplicar una acción al estado de la Partida. */
 export type ResultadoAccion =
@@ -334,10 +341,9 @@ export type ResultadoAccion =
 
 /** Resultado de una operación sobre el estado de Fichas. */
 export type ResultadoFichas =
-  | { ok: true; estado: EstadoFichas }
-  | { ok: false; error: ErrorJuego };
+  { ok: true; estado: EstadoFichas } | { ok: false; error: ErrorJuego };
 
 /** Resultado de la evaluación de una mano. */
 export type ResultadoEvaluacion =
   | { ok: true; mano: ManoEvaluada }
-  | { ok: false; motivo: 'CARTAS_INSUFICIENTES' };
+  | { ok: false; motivo: "CARTAS_INSUFICIENTES" };

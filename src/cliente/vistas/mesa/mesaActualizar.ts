@@ -1,9 +1,9 @@
-import type { EstadoCliente } from '../../estado';
-import type { VistaPartida } from '../../protocolo';
-import type { VistaGolpe } from '../../../dominio/proyeccion';
-import { BOLSILLO_OCULTO } from '../../../dominio/proyeccion';
-import type { AccionesMesa } from './tipos';
-import type { EstadoFichas } from '../../../dominio/modelos';
+import type { EstadoCliente } from "../../estado";
+import type { VistaPartida } from "../../protocolo";
+import type { VistaGolpe } from "../../../dominio/proyeccion";
+import { BOLSILLO_OCULTO } from "../../../dominio/proyeccion";
+import type { AccionesMesa } from "./tipos";
+import type { EstadoFichas } from "../../../dominio/modelos";
 import {
   animarEntradaMesa,
   animarEntradaShowdownMesa,
@@ -12,8 +12,8 @@ import {
   animarPulso,
   animarVolteoShowdown,
   elementoFichaEnUbicacion,
-} from './mesaAnimaciones';
-import { detectarMovimientosFichas } from './mesaFichasDiff';
+} from "./mesaAnimaciones";
+import { detectarMovimientosFichas } from "./mesaFichasDiff";
 import {
   htmlAccionesMesa,
   htmlAsientos,
@@ -24,11 +24,12 @@ import {
   htmlSeccionComunitarias,
   htmlTemporizadorHud,
   type MesaPokerContexto,
-} from './mesaPokerHtml';
-import { actualizarAvisoDesconexion } from './mesaAvisoDesconexion';
-import { actualizarToastResultado, limpiarToastMesa } from './mesaToast';
-import { htmlShowdownOrdenMesa, showdownMesaCompleto } from '../showdown';
-import { enlazarEventosMesa, recordatorioEsperaHtml } from './mesaEventos';
+} from "./mesaPokerHtml";
+import { actualizarAvisoDesconexion } from "./mesaAvisoDesconexion";
+import { htmlBotonHistorial } from "./historialGolpes";
+import { actualizarToastResultado, limpiarToastMesa } from "./mesaToast";
+import { htmlShowdownOrdenMesa, showdownMesaCompleto } from "../showdown";
+import { enlazarEventosMesa, recordatorioEsperaHtml } from "./mesaEventos";
 
 interface MesaSnapshot {
   estructura: string;
@@ -62,7 +63,7 @@ function construirContexto(estado: EstadoCliente): MesaPokerContexto | null {
     golpe,
     esEspectador,
     tengoFichaActiva,
-    esShowdown: golpe.ronda === 'SHOWDOWN',
+    esShowdown: golpe.ronda === "SHOWDOWN",
   };
 }
 
@@ -73,7 +74,7 @@ function claveEstructura(vista: VistaPartida, golpe: VistaGolpe): string {
     golpe.ronda,
     vista.esEspectador,
     vista.perspectivaJugadorId,
-  ].join('|');
+  ].join("|");
 }
 
 function clavePool(golpe: VistaGolpe): string {
@@ -81,15 +82,17 @@ function clavePool(golpe: VistaGolpe): string {
 }
 
 function claveAsientos(vista: VistaPartida, golpe: VistaGolpe): string {
-  const conexion = vista.jugadores.map((j) => `${j.id}:${j.conectado}`).join(',');
+  const conexion = vista.jugadores
+    .map((j) => `${j.id}:${j.conectado}`)
+    .join(",");
   const bolsillos = vista.jugadores
-    .map((j) => `${j.id}:${j.bolsillo === BOLSILLO_OCULTO ? 'O' : 'V'}`)
-    .join(',');
-  return `${JSON.stringify(golpe.fichas.porJugador)}|${golpe.confirmados.join(',')}|${conexion}|${golpe.ronda}|${golpe.reveladoShowdown}|${bolsillos}`;
+    .map((j) => `${j.id}:${j.bolsillo === BOLSILLO_OCULTO ? "O" : "V"}`)
+    .join(",");
+  return `${JSON.stringify(golpe.fichas.porJugador)}|${golpe.confirmados.join(",")}|${conexion}|${golpe.ronda}|${golpe.reveladoShowdown}|${bolsillos}`;
 }
 
 function claveOverlay(esShowdown: boolean): string {
-  return esShowdown ? 'showdown' : '';
+  return esShowdown ? "showdown" : "";
 }
 
 function montajeCompleto(
@@ -98,7 +101,7 @@ function montajeCompleto(
   acciones: AccionesMesa,
 ): MesaSnapshot {
   contenedor.innerHTML = htmlMesaPoker(ctx);
-  const mesa = contenedor.querySelector<HTMLElement>('.mesa-poker');
+  const mesa = contenedor.querySelector<HTMLElement>(".mesa-poker");
   if (mesa !== null) {
     animarEntradaMesa(mesa);
   }
@@ -106,9 +109,9 @@ function montajeCompleto(
 }
 
 function actualizarOverlay(contenedor: HTMLElement): void {
-  const overlay = contenedor.querySelector<HTMLElement>('#mesa-poker-overlay');
+  const overlay = contenedor.querySelector<HTMLElement>("#mesa-poker-overlay");
   if (overlay !== null) {
-    overlay.innerHTML = '';
+    overlay.innerHTML = "";
   }
 }
 
@@ -116,11 +119,78 @@ function actualizarAcciones(
   contenedor: HTMLElement,
   ctx: MesaPokerContexto,
 ): void {
-  const slot = contenedor.querySelector('#mesa-poker-acciones');
+  const slot = contenedor.querySelector("#mesa-poker-acciones");
   if (slot === null) {
     return;
   }
-  slot.innerHTML = htmlAccionesMesa(ctx.esShowdown, ctx.vista, ctx.esEspectador);
+  slot.innerHTML = htmlAccionesMesa(
+    ctx.esShowdown,
+    ctx.vista,
+    ctx.esEspectador,
+  );
+}
+
+function asegurarHudDerecha(hud: Element): HTMLElement {
+  let derecha = hud.querySelector<HTMLElement>(".mesa-poker__hud-derecha");
+  if (derecha === null) {
+    derecha = document.createElement("div");
+    derecha.className = "mesa-poker__hud-derecha";
+    const botonTerminar = hud.querySelector("#boton-terminar-partida");
+    if (botonTerminar !== null) {
+      derecha.appendChild(botonTerminar);
+      hud.appendChild(derecha);
+    } else {
+      hud.appendChild(derecha);
+    }
+  }
+  return derecha;
+}
+
+function actualizarBotonHistorial(hud: Element, vista: VistaPartida): void {
+  const derecha = asegurarHudDerecha(hud);
+  const botonPrevio = derecha.querySelector("#mesa-historial-boton");
+  const botonHtml = htmlBotonHistorial(vista);
+
+  if (botonHtml === "") {
+    botonPrevio?.remove();
+    return;
+  }
+
+  if (botonPrevio !== null) {
+    botonPrevio.outerHTML = botonHtml;
+    return;
+  }
+
+  const botonTerminar = derecha.querySelector("#boton-terminar-partida");
+  if (botonTerminar !== null) {
+    botonTerminar.insertAdjacentHTML("beforebegin", botonHtml);
+  } else {
+    derecha.insertAdjacentHTML("afterbegin", botonHtml);
+  }
+}
+
+function actualizarContadorEspectadores(
+  mesa: HTMLElement,
+  vista: VistaPartida,
+): void {
+  const contador = mesa.querySelector<HTMLElement>(
+    ".mesa-poker__espectadores-count",
+  );
+  const contenedor = mesa.querySelector<HTMLElement>(
+    ".mesa-poker__espectadores",
+  );
+  if (contador === null || contenedor === null) {
+    return;
+  }
+
+  const conectados = vista.espectadores.filter(
+    (espectador) => espectador.conectado,
+  );
+  const total = conectados.length;
+  contador.textContent = total === 1 ? "1 espectador" : `${total} espectadores`;
+  contenedor.title = conectados
+    .map((espectador) => espectador.nombre)
+    .join(", ");
 }
 
 function aplicarParches(
@@ -130,34 +200,36 @@ function aplicarParches(
   prev: MesaSnapshot | null,
 ): MesaSnapshot {
   const { vista, golpe } = ctx;
-  const mesa = contenedor.querySelector<HTMLElement>('.mesa-poker');
+  const mesa = contenedor.querySelector<HTMLElement>(".mesa-poker");
   if (mesa === null) {
     return montajeCompleto(contenedor, ctx, acciones);
   }
 
-  const hud = mesa.querySelector('.mesa-poker__hud');
+  const hud = mesa.querySelector(".mesa-poker__hud");
   if (hud !== null) {
-    const marcador = hud.querySelector('.mesa-poker__marcador');
+    const marcador = hud.querySelector(".mesa-poker__marcador");
     if (marcador !== null) {
       marcador.outerHTML = htmlHudMarcador(vista);
     }
-    const ronda = hud.querySelector('.mesa-poker__ronda');
+    const ronda = hud.querySelector(".mesa-poker__ronda");
     if (ronda !== null) {
       ronda.outerHTML = htmlHudRonda(vista, golpe);
     }
-    const timerPrevio = hud.querySelector('.mesa-poker__timer');
+    const timerPrevio = hud.querySelector(".mesa-poker__timer");
     const timerHtml = htmlTemporizadorHud(golpe);
-    if (timerHtml === '') {
+    if (timerHtml === "") {
       timerPrevio?.remove();
     } else if (timerPrevio !== null) {
       timerPrevio.outerHTML = timerHtml;
     } else {
-      hud.insertAdjacentHTML('beforeend', timerHtml);
+      hud.insertAdjacentHTML("beforeend", timerHtml);
     }
+    actualizarBotonHistorial(hud, vista);
   }
 
   actualizarToastResultado(mesa, vista);
   actualizarAvisoDesconexion(mesa, vista);
+  actualizarContadorEspectadores(mesa, vista);
 
   let movimientosFichas: ReturnType<typeof detectarMovimientosFichas> = [];
   const rectsOrigen = new Map<string, DOMRect>();
@@ -166,62 +238,73 @@ function aplicarParches(
     for (const mov of movimientosFichas) {
       const origEl = elementoFichaEnUbicacion(mesa, mov.origen, mov.ficha);
       if (origEl !== null) {
-        rectsOrigen.set(`f-${mov.ficha.color}-${mov.ficha.estrellas}`, origEl.getBoundingClientRect());
+        rectsOrigen.set(
+          `f-${mov.ficha.color}-${mov.ficha.estrellas}`,
+          origEl.getBoundingClientRect(),
+        );
       }
     }
   }
 
-  const centro = mesa.querySelector('.mesa-poker__centro');
+  const centro = mesa.querySelector(".mesa-poker__centro");
   if (centro !== null) {
-    const comunitariasPrev = centro.querySelector('.mesa-poker__centro-comunitarias');
+    const comunitariasPrev = centro.querySelector(
+      ".mesa-poker__centro-comunitarias",
+    );
     const comHtml = htmlSeccionComunitarias(golpe);
     if (comunitariasPrev !== null) {
       comunitariasPrev.outerHTML = comHtml;
     } else {
-      centro.insertAdjacentHTML('afterbegin', comHtml);
+      centro.insertAdjacentHTML("afterbegin", comHtml);
     }
 
-    const poolPrev = centro.querySelector('.mesa-poker__pool-centro');
-    const showdownPrev = centro.querySelector('.showdown-mesa');
+    const poolPrev = centro.querySelector(".mesa-poker__pool-centro");
+    const showdownPrev = centro.querySelector(".showdown-mesa");
     const showdownHtml = htmlShowdownOrdenMesa(vista, golpe);
 
-    if (showdownHtml === '') {
+    if (showdownHtml === "") {
       showdownPrev?.remove();
       const poolHtml = htmlPoolCentro(ctx);
-      if (poolHtml === '') {
+      if (poolHtml === "") {
         poolPrev?.remove();
       } else if (poolPrev !== null) {
         poolPrev.outerHTML = poolHtml;
       } else {
-        centro.insertAdjacentHTML('beforeend', poolHtml);
+        centro.insertAdjacentHTML("beforeend", poolHtml);
       }
     } else {
       poolPrev?.remove();
       if (showdownPrev !== null) {
         showdownPrev.outerHTML = showdownHtml;
       } else {
-        const comunitariasEl = centro.querySelector('.mesa-poker__centro-comunitarias');
+        const comunitariasEl = centro.querySelector(
+          ".mesa-poker__centro-comunitarias",
+        );
         if (comunitariasEl !== null) {
-          comunitariasEl.insertAdjacentHTML('afterend', showdownHtml);
+          comunitariasEl.insertAdjacentHTML("afterend", showdownHtml);
         } else {
-          centro.insertAdjacentHTML('beforeend', showdownHtml);
+          centro.insertAdjacentHTML("beforeend", showdownHtml);
         }
       }
     }
   }
 
-  const asientosEl = mesa.querySelector('.mesa-poker__asientos');
+  const asientosEl = mesa.querySelector(".mesa-poker__asientos");
   if (asientosEl !== null) {
     asientosEl.innerHTML = htmlAsientos(ctx);
   }
 
   const showdownResuelto = ctx.esShowdown && showdownMesaCompleto(vista, golpe);
-  mesa.classList.toggle('mesa-poker--showdown-resuelto', showdownResuelto);
+  mesa.classList.toggle("mesa-poker--showdown-resuelto", showdownResuelto);
 
   actualizarOverlay(contenedor);
   actualizarAcciones(contenedor, ctx);
 
-  if (prev !== null && ctx.esShowdown && ctx.golpe.reveladoShowdown > prev.reveladoShowdown) {
+  if (
+    prev !== null &&
+    ctx.esShowdown &&
+    ctx.golpe.reveladoShowdown > prev.reveladoShowdown
+  ) {
     const orden = ctx.golpe.ordenShowdown;
     const jugadorId = orden[ctx.golpe.reveladoShowdown - 1];
     if (jugadorId !== undefined) {
@@ -235,43 +318,52 @@ function aplicarParches(
     showdownCompleto &&
     prev.reveladoShowdown < vista.jugadores.length
   ) {
-    const showdownMesa = mesa.querySelector('.showdown-mesa');
+    const showdownMesa = mesa.querySelector(".showdown-mesa");
     if (showdownMesa !== null) {
       animarEntradaShowdownMesa(showdownMesa);
     }
   }
 
   if (prev !== null) {
-    if (prev.bovedas !== vista.bovedasDoradas || prev.alarmas !== vista.alarmasRojas) {
-      const marcador = mesa.querySelector('.mesa-poker__marcador');
+    if (
+      prev.bovedas !== vista.bovedasDoradas ||
+      prev.alarmas !== vista.alarmasRojas
+    ) {
+      const marcador = mesa.querySelector(".mesa-poker__marcador");
       if (marcador !== null) {
         animarPulso(marcador);
       }
     }
-    const toast = mesa.querySelector('.mesa-poker__toast');
-    if (toast !== null && (prev.bovedas !== vista.bovedasDoradas || prev.alarmas !== vista.alarmasRojas)) {
+    const toast = mesa.querySelector(".mesa-poker__toast");
+    if (
+      toast !== null &&
+      (prev.bovedas !== vista.bovedasDoradas ||
+        prev.alarmas !== vista.alarmasRojas)
+    ) {
       animarPulso(toast);
     }
   }
 
   const clavesCartas = animarNovedades(
     mesa,
-    '.mesa-poker__comunitarias [data-animate-key]',
+    ".mesa-poker__comunitarias [data-animate-key]",
     prev?.clavesCartas ?? new Set(),
   );
   let clavesFichas: Set<string>;
   if (movimientosFichas.length > 0) {
     clavesFichas = new Set<string>();
-    mesa.querySelectorAll<HTMLElement>('.mesa-poker__pool [data-animate-key]').forEach((nodo) => {
-      const clave = nodo.dataset['animateKey'];
-      if (clave !== undefined && clave.length > 0) {
-        clavesFichas.add(clave);
-      }
-    });
+    mesa
+      .querySelectorAll<HTMLElement>(".mesa-poker__pool [data-animate-key]")
+      .forEach((nodo) => {
+        const clave = nodo.dataset["animateKey"];
+        if (clave !== undefined && clave.length > 0) {
+          clavesFichas.add(clave);
+        }
+      });
   } else {
     clavesFichas = animarNovedades(
       mesa,
-      '.mesa-poker__pool [data-animate-key]',
+      ".mesa-poker__pool [data-animate-key]",
       prev?.clavesFichas ?? new Set(),
     );
   }
@@ -312,7 +404,7 @@ export function actualizarMesa(
 ): void {
   const ctx = construirContexto(estado);
   if (ctx === null) {
-    const mesaPrev = contenedor.querySelector<HTMLElement>('.mesa-poker');
+    const mesaPrev = contenedor.querySelector<HTMLElement>(".mesa-poker");
     if (mesaPrev !== null) {
       limpiarToastMesa(mesaPrev);
     }
@@ -323,9 +415,13 @@ export function actualizarMesa(
 
   const prev = snapshots.get(contenedor) ?? null;
   const estructura = claveEstructura(ctx.vista, ctx.golpe);
-  const mesaExistente = contenedor.querySelector('.mesa-poker');
+  const mesaExistente = contenedor.querySelector(".mesa-poker");
 
-  if (mesaExistente === null || prev === null || prev.estructura !== estructura) {
+  if (
+    mesaExistente === null ||
+    prev === null ||
+    prev.estructura !== estructura
+  ) {
     montajeCompleto(contenedor, ctx, acciones);
     return;
   }

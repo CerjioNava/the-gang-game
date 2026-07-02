@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { fc, verificarPropiedad } from './pbt';
-import { resolverShowdown } from '../src/dominio/showdown';
-import { comparar, esEmpateVerdadero, evaluar } from '../src/dominio/evaluador';
-import { PALOS, type Carta, type EstadoGolpe, type Ficha, type Jugador, type Palo } from '../src/dominio/modelos';
+import { describe, it, expect } from "vitest";
+import { fc, verificarPropiedad } from "./pbt";
+import { resolverShowdown } from "../src/dominio/showdown";
+import { comparar, esEmpateVerdadero, evaluar } from "../src/dominio/evaluador";
+import {
+  PALOS,
+  type Carta,
+  type EstadoGolpe,
+  type Ficha,
+  type Jugador,
+  type Palo,
+} from "../src/dominio/modelos";
 
 // Prueba basada en propiedades de la resolución del Showdown (fast-check + Vitest).
 // _Requirements: 8.5_
@@ -32,11 +39,11 @@ const c = (valor: number, palo: Palo): Carta => ({ valor, palo });
 
 /** Tablero fijo: A A A K Q (palos mezclados, sin riesgo de color). */
 const COMUNITARIAS: readonly Carta[] = [
-  c(14, 'PICAS'),
-  c(14, 'CORAZONES'),
-  c(14, 'DIAMANTES'),
-  c(13, 'TREBOLES'),
-  c(12, 'DIAMANTES'),
+  c(14, "PICAS"),
+  c(14, "CORAZONES"),
+  c(14, "DIAMANTES"),
+  c(13, "TREBOLES"),
+  c(12, "DIAMANTES"),
 ];
 
 /**
@@ -58,24 +65,24 @@ function bolsilloEmpatado(indice: number): [Carta, Carta] {
   return [a, b];
 }
 
-type NivelDisruptor = 'FULL_HOUSE' | 'POKER' | 'ESCALERA';
+type NivelDisruptor = "FULL_HOUSE" | "POKER" | "ESCALERA";
 
 /** Cartas de bolsillo de un Jugador NO empatado, estrictamente más fuerte que AAA-K-Q. */
 function bolsilloDisruptor(nivel: NivelDisruptor): [Carta, Carta] {
   switch (nivel) {
-    case 'FULL_HOUSE':
+    case "FULL_HOUSE":
       // Par de 10 en bolsillo → AAA + 10·10 = Full House.
-      return [c(10, 'TREBOLES'), c(10, 'PICAS')];
-    case 'POKER':
+      return [c(10, "TREBOLES"), c(10, "PICAS")];
+    case "POKER":
       // Cuarto As → AAAA = Póker.
-      return [c(14, 'TREBOLES'), c(10, 'CORAZONES')];
-    case 'ESCALERA':
+      return [c(14, "TREBOLES"), c(10, "CORAZONES")];
+    case "ESCALERA":
       // J y 10 → A-K-Q-J-10 = Escalera (Broadway).
-      return [c(11, 'TREBOLES'), c(10, 'DIAMANTES')];
+      return [c(11, "TREBOLES"), c(10, "DIAMANTES")];
   }
 }
 
-type PosicionDisruptor = 'NINGUNO' | 'PRIMERO' | 'ULTIMO';
+type PosicionDisruptor = "NINGUNO" | "PRIMERO" | "ULTIMO";
 
 interface Escenario {
   /** Jugadores de la Partida (empatados + posible disruptor). */
@@ -108,13 +115,13 @@ function construirEscenario(
   pos: PosicionDisruptor,
   nivel: NivelDisruptor,
 ): Escenario {
-  const tamEmpate = pos === 'NINGUNO' ? n : n - 1;
+  const tamEmpate = pos === "NINGUNO" ? n : n - 1;
 
   let bloque: number[];
   let estrellaDisruptor: number | null = null;
-  if (pos === 'NINGUNO') {
+  if (pos === "NINGUNO") {
     bloque = rango(1, n);
-  } else if (pos === 'ULTIMO') {
+  } else if (pos === "ULTIMO") {
     bloque = rango(1, n - 1);
     estrellaDisruptor = n;
   } else {
@@ -134,7 +141,7 @@ function construirEscenario(
   }
 
   if (estrellaDisruptor !== null) {
-    const id = 'D';
+    const id = "D";
     jugadores.push({ id, nombre: id, bolsillo: bolsilloDisruptor(nivel) });
     mapaEstrellas[id] = estrellaDisruptor;
   }
@@ -143,18 +150,22 @@ function construirEscenario(
 }
 
 /** Construye el EstadoGolpe del Showdown a partir de un mapa de estrellas rojas. */
-function construirGolpe(n: number, mapaEstrellas: Record<string, number>): EstadoGolpe {
+function construirGolpe(
+  n: number,
+  mapaEstrellas: Record<string, number>,
+): EstadoGolpe {
   const porJugador: Record<string, Ficha[]> = {};
   for (const [id, estrellas] of Object.entries(mapaEstrellas)) {
-    porJugador[id] = [{ color: 'ROJO', estrellas }];
+    porJugador[id] = [{ color: "ROJO", estrellas }];
   }
   return {
     numero: 1,
-    ronda: 'SHOWDOWN',
+    ronda: "SHOWDOWN",
     baraja: [],
     comunitarias: [...COMUNITARIAS],
-    fichas: { numJugadores: n, centro: [], porJugador, colorActivo: 'ROJO' },
+    fichas: { numJugadores: n, centro: [], porJugador, colorActivo: "ROJO" },
     confirmados: [],
+    reveladoShowdown: n,
   };
 }
 
@@ -191,7 +202,7 @@ function verificarEmpateReal(escenario: Escenario): void {
     const jugador = escenario.jugadores.find((j) => j.id === id)!;
     const res = evaluar(jugador.bolsillo, COMUNITARIAS);
     expect(res.ok).toBe(true);
-    if (!res.ok) throw new Error('Evaluación inesperadamente fallida');
+    if (!res.ok) throw new Error("Evaluación inesperadamente fallida");
     return res.mano;
   });
   const referencia = manos[0]!;
@@ -205,16 +216,20 @@ function verificarEmpateReal(escenario: Escenario): void {
 // Property 23 (PBT)
 // ===========================================================================
 
-describe('Showdown (PBT) - Property 23: los Empates Verdaderos consecutivos no causan fracaso', () => {
-  it('permutar las Fichas rojas dentro del bloque empatado no cambia el éxito del Golpe', () => {
+describe("Showdown (PBT) - Property 23: los Empates Verdaderos consecutivos no causan fracaso", () => {
+  it("permutar las Fichas rojas dentro del bloque empatado no cambia el éxito del Golpe", () => {
     const arbEscenario = fc
       .record({
         n: fc.integer({ min: 3, max: 6 }),
-        pos: fc.constantFrom<PosicionDisruptor>('NINGUNO', 'PRIMERO', 'ULTIMO'),
-        nivel: fc.constantFrom<NivelDisruptor>('FULL_HOUSE', 'POKER', 'ESCALERA'),
+        pos: fc.constantFrom<PosicionDisruptor>("NINGUNO", "PRIMERO", "ULTIMO"),
+        nivel: fc.constantFrom<NivelDisruptor>(
+          "FULL_HOUSE",
+          "POKER",
+          "ESCALERA",
+        ),
       })
       .chain(({ n, pos, nivel }) => {
-        const tamEmpate = pos === 'NINGUNO' ? n : n - 1;
+        const tamEmpate = pos === "NINGUNO" ? n : n - 1;
         return fc.record({
           n: fc.constant(n),
           pos: fc.constant(pos),
@@ -254,7 +269,7 @@ describe('Showdown (PBT) - Property 23: los Empates Verdaderos consecutivos no c
         // El resultado depende únicamente de los Jugadores no empatados que rodean
         // al bloque: un disruptor más fuerte ANTES del bloque (PRIMERO) provoca
         // fracaso; en cualquier otro caso el Golpe es exitoso.
-        const esperado = pos !== 'PRIMERO';
+        const esperado = pos !== "PRIMERO";
         expect(resBase.exito).toBe(esperado);
         expect(resPerm.exito).toBe(esperado);
       }),
@@ -266,7 +281,7 @@ describe('Showdown (PBT) - Property 23: los Empates Verdaderos consecutivos no c
 // Casos deterministas construidos a mano
 // ===========================================================================
 
-describe('Showdown - Property 23: casos deterministas', () => {
+describe("Showdown - Property 23: casos deterministas", () => {
   function exitoConPermutacion(
     n: number,
     pos: PosicionDisruptor,
@@ -292,35 +307,60 @@ describe('Showdown - Property 23: casos deterministas', () => {
     return { base, permutado };
   }
 
-  it('N=4, todos empatados: el Golpe es exitoso y permutar las rojas no lo cambia', () => {
+  it("N=4, todos empatados: el Golpe es exitoso y permutar las rojas no lo cambia", () => {
     // Bloque empatado {1,2,3,4}, permutación invertida.
-    const { base, permutado } = exitoConPermutacion(4, 'NINGUNO', 'FULL_HOUSE', [3, 2, 1, 0]);
+    const { base, permutado } = exitoConPermutacion(
+      4,
+      "NINGUNO",
+      "FULL_HOUSE",
+      [3, 2, 1, 0],
+    );
     expect(base).toBe(true);
     expect(permutado).toBe(true);
   });
 
-  it('N=5, empatados seguidos de un Full House más fuerte: éxito invariante a la permutación', () => {
+  it("N=5, empatados seguidos de un Full House más fuerte: éxito invariante a la permutación", () => {
     // Empatados en estrellas 1..4, disruptor (Full House) en estrella 5.
-    const { base, permutado } = exitoConPermutacion(5, 'ULTIMO', 'FULL_HOUSE', [3, 0, 2, 1]);
+    const { base, permutado } = exitoConPermutacion(
+      5,
+      "ULTIMO",
+      "FULL_HOUSE",
+      [3, 0, 2, 1],
+    );
     expect(base).toBe(true);
     expect(permutado).toBe(true);
   });
 
-  it('N=4, empatados seguidos de un Póker más fuerte: éxito invariante a la permutación', () => {
-    const { base, permutado } = exitoConPermutacion(4, 'ULTIMO', 'POKER', [2, 1, 0]);
+  it("N=4, empatados seguidos de un Póker más fuerte: éxito invariante a la permutación", () => {
+    const { base, permutado } = exitoConPermutacion(
+      4,
+      "ULTIMO",
+      "POKER",
+      [2, 1, 0],
+    );
     expect(base).toBe(true);
     expect(permutado).toBe(true);
   });
 
-  it('N=4, un Póker más fuerte ANTES del bloque empatado: fracaso invariante a la permutación', () => {
+  it("N=4, un Póker más fuerte ANTES del bloque empatado: fracaso invariante a la permutación", () => {
     // Disruptor (Póker) en estrella 1, empatados en estrellas 2..4.
-    const { base, permutado } = exitoConPermutacion(4, 'PRIMERO', 'POKER', [2, 1, 0]);
+    const { base, permutado } = exitoConPermutacion(
+      4,
+      "PRIMERO",
+      "POKER",
+      [2, 1, 0],
+    );
     expect(base).toBe(false);
     expect(permutado).toBe(false);
   });
 
-  it('N=6, una Escalera más fuerte ANTES del bloque empatado: fracaso invariante a la permutación', () => {
-    const { base, permutado } = exitoConPermutacion(6, 'PRIMERO', 'ESCALERA', [4, 3, 2, 1, 0]);
+  it("N=6, una Escalera más fuerte ANTES del bloque empatado: fracaso invariante a la permutación", () => {
+    const { base, permutado } = exitoConPermutacion(
+      6,
+      "PRIMERO",
+      "ESCALERA",
+      [4, 3, 2, 1, 0],
+    );
     expect(base).toBe(false);
     expect(permutado).toBe(false);
   });

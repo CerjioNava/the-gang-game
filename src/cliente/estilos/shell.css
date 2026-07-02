@@ -92,7 +92,10 @@ body {
   color: #f0b3ab;
   font-size: 0.88rem;
   overflow: hidden;
-  transition: max-height 0.15s ease, padding 0.15s ease, border-width 0.15s ease;
+  transition:
+    max-height 0.15s ease,
+    padding 0.15s ease,
+    border-width 0.15s ease;
   max-height: 4rem;
 }
 
@@ -135,6 +138,10 @@ body {
   padding: 0.35rem 1rem;
   border-top: 1px solid var(--panel-borde);
   background: rgba(20, 23, 28, 0.92);
+}
+
+.app-shell__footer--oculto {
+  display: none;
 }
 
 .app-shell__footer-inner {

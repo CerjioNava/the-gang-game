@@ -4,14 +4,14 @@
 // Servidor_Local, mantiene el store del cliente con la última VistaPartida y
 // re-renderiza la interfaz dentro del AppShell persistente.
 
-import './estilos.css';
+import "./estilos.css";
 import {
   esMensajeError,
   esMensajeEstado,
   mensajes,
   type MensajeServidor,
-} from './protocolo';
-import { PERSPECTIVA_INVITADO } from '../dominio/proyeccion';
+} from "./protocolo";
+import { PERSPECTIVA_INVITADO } from "../dominio/proyeccion";
 import {
   StoreCliente,
   descripcionParaUnirse,
@@ -22,28 +22,29 @@ import {
   tieneNombreValido,
   DESCRIPCION_MAX,
   type EstadoCliente,
-} from './estado';
-import { elegirAliasAlAzar } from './datos/nombresAzar';
-import { ConexionServidor, construirUrlWebSocket } from './ws';
-import { montarShell } from './app/shell';
-import { renderizarFase } from './app/renderRouter';
-import { type AccionesLobby } from './vistas/lobby';
-import { type AccionesMesa } from './vistas/mesa';
-import { montarRanking } from './vistas/ranking';
-import type { Ficha } from './protocolo';
+} from "./estado";
+import { elegirAliasAlAzar } from "./datos/nombresAzar";
+import { ConexionServidor, construirUrlWebSocket } from "./ws";
+import { montarShell } from "./app/shell";
+import { renderizarFase } from "./app/renderRouter";
+import { type AccionesLobby } from "./vistas/lobby";
+import { type AccionesMesa } from "./vistas/mesa";
+import { montarRanking } from "./vistas/ranking";
+import type { Ficha } from "./protocolo";
+import { montarPanelHistorial } from "./vistas/mesa/historialGolpes";
 import {
   cargarCredencial,
   limpiarCredencial,
   mensajeUnirseDesdeCredencial,
   persistirDesdeVista,
-} from './persistenciaSesion';
+} from "./persistenciaSesion";
 
 const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 20;
 
-const raiz = document.querySelector<HTMLDivElement>('#app');
+const raiz = document.querySelector<HTMLDivElement>("#app");
 if (raiz === null) {
-  throw new Error('No se encontró el contenedor #app para montar la interfaz.');
+  throw new Error("No se encontró el contenedor #app para montar la interfaz.");
 }
 
 const shell = montarShell(raiz);
@@ -51,7 +52,7 @@ const store = new StoreCliente();
 
 const conexion = new ConexionServidor(construirUrlWebSocket(window.location), {
   alAbrir() {
-    store.fijarConexion('CONECTADO');
+    store.fijarConexion("CONECTADO");
     const credencial = cargarCredencial();
     if (credencial !== null) {
       store.actualizar({
@@ -66,7 +67,7 @@ const conexion = new ConexionServidor(construirUrlWebSocket(window.location), {
     manejarMensajeEntrante(mensaje);
   },
   alCerrar() {
-    store.fijarConexion('DESCONECTADO');
+    store.fijarConexion("DESCONECTADO");
   },
 });
 
@@ -74,8 +75,8 @@ function limpiarBorradorEntrada(): void {
   limpiarCredencial();
   store.actualizar({
     aliasElegido: null,
-    nombreBorrador: '',
-    descripcionBorrador: '',
+    nombreBorrador: "",
+    descripcionBorrador: "",
     error: null,
     reconectando: false,
   });
@@ -86,7 +87,7 @@ function manejarMensajeEntrante(mensaje: MensajeServidor): void {
   if (esMensajeEstado(mensaje)) {
     store.recibirVista(mensaje.payload);
     if (mensaje.payload.perspectivaJugadorId === PERSPECTIVA_INVITADO) {
-      if (mensaje.payload.fase === 'LOBBY') {
+      if (mensaje.payload.fase === "LOBBY") {
         limpiarBorradorEntrada();
       }
       return;
@@ -119,18 +120,18 @@ const accionesLobby: AccionesLobby = {
         esManual: false,
       },
       nombreBorrador: alias.nombre,
-      descripcionBorrador: alias.descripcion ?? '',
-      modoUnirse: 'JUGADOR',
+      descripcionBorrador: alias.descripcion ?? "",
+      modoUnirse: "JUGADOR",
       error: null,
     });
     const descripcion =
       alias.descripcion !== undefined && alias.descripcion.trim().length > 0
         ? alias.descripcion.trim()
         : undefined;
-    conexion.enviar(mensajes.unirse(alias.nombre, 'JUGADOR', descripcion));
+    conexion.enviar(mensajes.unirse(alias.nombre, "JUGADOR", descripcion));
   },
   entrarComoEspectador() {
-    store.actualizar({ modoUnirse: 'ESPECTADOR', error: null });
+    store.actualizar({ modoUnirse: "ESPECTADOR", error: null });
     conexion.enviar(mensajes.unirseEspectador());
   },
   cambiarNombre(nombre: string) {
@@ -149,7 +150,7 @@ const accionesLobby: AccionesLobby = {
         esManual: false,
       },
       nombreBorrador: alias.nombre,
-      descripcionBorrador: alias.descripcion ?? '',
+      descripcionBorrador: alias.descripcion ?? "",
       error: null,
     });
     if (jugadorRegistrado(store.obtener())) {
@@ -159,7 +160,9 @@ const accionesLobby: AccionesLobby = {
   activarAliasManual() {
     const estado = store.obtener();
     const vista = estado.vista;
-    const yo = vista?.jugadores.find((j) => j.id === vista.perspectivaJugadorId);
+    const yo = vista?.jugadores.find(
+      (j) => j.id === vista.perspectivaJugadorId,
+    );
     const nombre = yo?.nombre ?? estado.nombreBorrador;
     const desc = yo?.descripcion ?? estado.descripcionBorrador;
     store.actualizar({
@@ -170,7 +173,7 @@ const accionesLobby: AccionesLobby = {
         esManual: true,
       },
       nombreBorrador: nombre,
-      descripcionBorrador: desc ?? '',
+      descripcionBorrador: desc ?? "",
       error: null,
     });
   },
@@ -204,7 +207,7 @@ const accionesLobby: AccionesLobby = {
       nombreBorrador: alias,
       error: null,
     });
-    conexion.enviar(mensajes.unirse(alias, 'JUGADOR'));
+    conexion.enviar(mensajes.unirse(alias, "JUGADOR"));
   },
 };
 
@@ -238,10 +241,15 @@ function enviarCambioIdentidadDesdeEstado(): boolean {
     return false;
   }
   if (!descripcionManualValida(estado)) {
-    store.recibirError(`La descripción no puede superar ${DESCRIPCION_MAX} caracteres.`);
+    store.recibirError(
+      `La descripción no puede superar ${DESCRIPCION_MAX} caracteres.`,
+    );
     return false;
   }
-  enviarCambioIdentidad(nombreParaUnirse(estado), descripcionParaUnirse(estado));
+  enviarCambioIdentidad(
+    nombreParaUnirse(estado),
+    descripcionParaUnirse(estado),
+  );
   return true;
 }
 
@@ -275,7 +283,7 @@ const accionesMesa: AccionesMesa = {
 
 let temporizadorTick: ReturnType<typeof setInterval> | null = null;
 
-function programarTickTemporizador(vista: EstadoCliente['vista']): void {
+function programarTickTemporizador(vista: EstadoCliente["vista"]): void {
   if (temporizadorTick !== null) {
     clearInterval(temporizadorTick);
     temporizadorTick = null;
@@ -305,9 +313,12 @@ function programarTickTemporizador(vista: EstadoCliente['vista']): void {
   }, 500);
 }
 
-/** Monta el botón de ranking en el slot del footer (se recrea tras cada render del shell). */
-function montarRankingEnFooter(): void {
-  const slot = shell.footer.querySelector<HTMLElement>('#app-footer-ranking');
+/** Monta el botón de ranking en el footer visible de la fase actual. */
+function montarRankingEnFooter(estado: EstadoCliente): void {
+  const slot =
+    estado.vista?.fase === "EN_CURSO"
+      ? shell.main.querySelector<HTMLElement>("#mesa-footer-ranking")
+      : shell.footer.querySelector<HTMLElement>("#app-footer-ranking");
   montarRanking(slot);
 }
 
@@ -317,7 +328,8 @@ function montarRankingEnFooter(): void {
 
 function renderApp(estado: EstadoCliente): void {
   renderizarFase(estado, shell, { lobby: accionesLobby, mesa: accionesMesa });
-  montarRankingEnFooter();
+  montarRankingEnFooter(estado);
+  montarPanelHistorial(estado.vista);
   programarTickTemporizador(estado.vista);
 }
 

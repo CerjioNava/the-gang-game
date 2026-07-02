@@ -27,9 +27,10 @@ import {
   type ResultadoGolpeReciente,
   type ResultadoPartida,
   type Ronda,
+  type SnapshotShowdownResuelto,
   type TerminacionPorDesconexion,
-} from './modelos';
-import { ordenJugadoresShowdown } from './showdown';
+} from "./modelos";
+import { ordenJugadoresShowdown } from "./showdown";
 
 // ===========================================================================
 // Tipos de vista
@@ -40,13 +41,13 @@ import { ordenJugadoresShowdown } from './showdown';
  * éstas están ocultas (antes del Showdown). Nunca contiene valores de cartas,
  * de modo que la vista no puede filtrar información privada.
  */
-export const BOLSILLO_OCULTO = 'OCULTO' as const;
+export const BOLSILLO_OCULTO = "OCULTO" as const;
 
 /**
  * Identificador de perspectiva para clientes conectados al servidor que aún no
  * se han unido a la Partida. Permite difundir el estado público del Lobby.
  */
-export const PERSPECTIVA_INVITADO = '__invitado__' as const;
+export const PERSPECTIVA_INVITADO = "__invitado__" as const;
 
 /**
  * Valor del campo `bolsillo` en una vista:
@@ -138,6 +139,8 @@ export interface VistaPartida {
   esEspectador: boolean;
   /** Golpes resueltos con su resultado. */
   historialGolpes: EntradaHistorialGolpe[];
+  /** Showdowns resueltos con cartas y manos visibles para consulta histórica. */
+  historialShowdowns: VistaShowdownResuelto[];
   /** Resultado del último Golpe resuelto (banner). */
   ultimoResultadoGolpe: ResultadoGolpeReciente | null;
   /** Showdown recién resuelto con cartas reveladas, o null. */
@@ -174,7 +177,7 @@ export type ResultadoSolicitudCartas =
  */
 export function bolsillosRevelados(estado: EstadoPartida): boolean {
   const golpe = estado.golpeActual;
-  if (golpe === null || golpe.ronda !== 'SHOWDOWN') {
+  if (golpe === null || golpe.ronda !== "SHOWDOWN") {
     return false;
   }
   return golpe.reveladoShowdown >= estado.jugadores.length;
@@ -183,7 +186,11 @@ export function bolsillosRevelados(estado: EstadoPartida): boolean {
 /** Ids de jugadores cuyo bolsillo ya fue revelado en el Showdown en curso. */
 function idsBolsillosRevelados(estado: EstadoPartida): ReadonlySet<string> {
   const golpe = estado.golpeActual;
-  if (golpe === null || golpe.ronda !== 'SHOWDOWN' || golpe.reveladoShowdown === 0) {
+  if (
+    golpe === null ||
+    golpe.ronda !== "SHOWDOWN" ||
+    golpe.reveladoShowdown === 0
+  ) {
     return new Set();
   }
   const orden = ordenJugadoresShowdown(estado.jugadores, golpe.fichas);
@@ -231,23 +238,24 @@ function proyectarJugador(
   return {
     id: jugador.id,
     nombre: jugador.nombre,
-    ...(jugador.descripcion !== undefined ? { descripcion: jugador.descripcion } : {}),
+    ...(jugador.descripcion !== undefined
+      ? { descripcion: jugador.descripcion }
+      : {}),
     bolsillo,
     conectado: true,
   };
 }
 
-function proyectarShowdownResuelto(
-  estado: EstadoPartida,
-): VistaShowdownResuelto | null {
-  const snap = estado.ultimoShowdownResuelto ?? null;
-  if (snap === null) {
-    return null;
-  }
-  const jugadores: JugadorVisible[] = estado.jugadores.map((jugador) => ({
+function proyectarSnapshotShowdown(
+  snap: SnapshotShowdownResuelto,
+  jugadoresEstado: readonly Jugador[],
+): VistaShowdownResuelto {
+  const jugadores: JugadorVisible[] = jugadoresEstado.map((jugador) => ({
     id: jugador.id,
     nombre: jugador.nombre,
-    ...(jugador.descripcion !== undefined ? { descripcion: jugador.descripcion } : {}),
+    ...(jugador.descripcion !== undefined
+      ? { descripcion: jugador.descripcion }
+      : {}),
     bolsillo: snap.bolsillosRevelados[jugador.id] ?? null,
     conectado: true,
   }));
@@ -258,6 +266,16 @@ function proyectarShowdownResuelto(
     fichas: snap.fichas,
     jugadores,
   };
+}
+
+function proyectarShowdownResuelto(
+  estado: EstadoPartida,
+): VistaShowdownResuelto | null {
+  const snap = estado.ultimoShowdownResuelto ?? null;
+  if (snap === null) {
+    return null;
+  }
+  return proyectarSnapshotShowdown(snap, estado.jugadores);
 }
 
 /**
@@ -321,8 +339,11 @@ export function proyectarEstadoPara(
           confirmados: [...estado.golpeActual.confirmados],
           reveladoShowdown: estado.golpeActual.reveladoShowdown,
           ordenShowdown:
-            estado.golpeActual.ronda === 'SHOWDOWN'
-              ? ordenJugadoresShowdown(estado.jugadores, estado.golpeActual.fichas)
+            estado.golpeActual.ronda === "SHOWDOWN"
+              ? ordenJugadoresShowdown(
+                  estado.jugadores,
+                  estado.golpeActual.fichas,
+                )
               : [],
           temporizadorFinAt,
         };
@@ -339,6 +360,9 @@ export function proyectarEstadoPara(
     alarmasRojas: estado.alarmasRojas,
     resultado: estado.resultado,
     historialGolpes: [...(estado.historialGolpes ?? [])],
+    historialShowdowns: (estado.historialShowdowns ?? []).map((snap) =>
+      proyectarSnapshotShowdown(snap, estado.jugadores),
+    ),
     ultimoResultadoGolpe: estado.ultimoResultadoGolpe ?? null,
     ultimoShowdownResuelto: proyectarShowdownResuelto(estado),
     terminacionPorDesconexion: estado.terminacionPorDesconexion ?? null,
@@ -367,6 +391,13 @@ export function aplicarEstadoConexion(
       ...jugador,
       conectado: conexionPorJugador.get(jugador.id) ?? jugador.conectado,
     })),
+    historialShowdowns: vista.historialShowdowns.map((showdown) => ({
+      ...showdown,
+      jugadores: showdown.jugadores.map((jugador) => ({
+        ...jugador,
+        conectado: conexionPorJugador.get(jugador.id) ?? jugador.conectado,
+      })),
+    })),
     espectadores: vista.espectadores.map((espectador) => ({
       ...espectador,
       conectado: conexionPorJugador.get(espectador.id) ?? espectador.conectado,
@@ -376,10 +407,13 @@ export function aplicarEstadoConexion(
         ? null
         : {
             ...vista.ultimoShowdownResuelto,
-            jugadores: vista.ultimoShowdownResuelto.jugadores.map((jugador) => ({
-              ...jugador,
-              conectado: conexionPorJugador.get(jugador.id) ?? jugador.conectado,
-            })),
+            jugadores: vista.ultimoShowdownResuelto.jugadores.map(
+              (jugador) => ({
+                ...jugador,
+                conectado:
+                  conexionPorJugador.get(jugador.id) ?? jugador.conectado,
+              }),
+            ),
           },
   };
 }
@@ -411,16 +445,18 @@ export function solicitarCartasDe(
   objetivoId: string,
 ): ResultadoSolicitudCartas {
   const esPropio = solicitanteId === objetivoId;
-  const esEspectador = (estado.espectadores ?? []).some((e) => e.id === solicitanteId);
+  const esEspectador = (estado.espectadores ?? []).some(
+    (e) => e.id === solicitanteId,
+  );
   const idsRevelados = idsBolsillosRevelados(estado);
 
   if (!esPropio && !esEspectador && !idsRevelados.has(objetivoId)) {
     return {
       ok: false,
       error: {
-        codigo: 'ACCION_NO_PERMITIDA',
+        codigo: "ACCION_NO_PERMITIDA",
         mensaje:
-          'No está permitido mirar las Cartas de Bolsillo de otro miembro de la banda antes del Showdown.',
+          "No está permitido mirar las Cartas de Bolsillo de otro miembro de la banda antes del Showdown.",
       },
     };
   }
@@ -430,14 +466,15 @@ export function solicitarCartasDe(
     return {
       ok: false,
       error: {
-        codigo: 'ACCION_NO_PERMITIDA',
-        mensaje: 'No se encontró a ese miembro de la banda en la Partida.',
+        codigo: "ACCION_NO_PERMITIDA",
+        mensaje: "No se encontró a ese miembro de la banda en la Partida.",
       },
     };
   }
 
   return {
     ok: true,
-    bolsillo: objetivo.bolsillo === null ? null : copiarBolsillo(objetivo.bolsillo),
+    bolsillo:
+      objetivo.bolsillo === null ? null : copiarBolsillo(objetivo.bolsillo),
   };
 }

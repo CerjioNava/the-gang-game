@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { fc, verificarPropiedad } from './pbt';
-import { resolverShowdown } from '../src/dominio/showdown';
+import { describe, it, expect } from "vitest";
+import { fc, verificarPropiedad } from "./pbt";
+import { resolverShowdown } from "../src/dominio/showdown";
 import {
   PALOS,
   type Carta,
   type EstadoGolpe,
   type Ficha,
   type Jugador,
-} from '../src/dominio/modelos';
+} from "../src/dominio/modelos";
 
 // Prueba basada en propiedades de la resolución del Showdown de The Gang.
 // _Requirements: 8.1, 8.2_
@@ -35,16 +35,18 @@ const BARAJA: Carta[] = PALOS.flatMap((palo) =>
  * `fc.shuffledSubarray` con longitud fija igual a N produce una permutación
  * completa y aleatoria del arreglo [1, 2, ..., N].
  */
-const genNyPermutacionRojas: fc.Arbitrary<{ n: number; permutacion: number[] }> =
-  genN.chain((n) => {
-    const valores = Array.from({ length: n }, (_, i) => i + 1);
-    return fc
-      .shuffledSubarray(valores, { minLength: n, maxLength: n })
-      .map((permutacion) => ({ n, permutacion }));
-  });
+const genNyPermutacionRojas: fc.Arbitrary<{
+  n: number;
+  permutacion: number[];
+}> = genN.chain((n) => {
+  const valores = Array.from({ length: n }, (_, i) => i + 1);
+  return fc
+    .shuffledSubarray(valores, { minLength: n, maxLength: n })
+    .map((permutacion) => ({ n, permutacion }));
+});
 
-describe('Property 21: Orden del Showdown es una biyección ascendente', () => {
-  it('para cualquier permutación de Fichas rojas 1..N, el orden tiene N posiciones, es estrictamente ascendente y es una biyección sobre los Jugadores', () => {
+describe("Property 21: Orden del Showdown es una biyección ascendente", () => {
+  it("para cualquier permutación de Fichas rojas 1..N, el orden tiene N posiciones, es estrictamente ascendente y es una biyección sobre los Jugadores", () => {
     verificarPropiedad(
       fc.property(genNyPermutacionRojas, ({ n, permutacion }) => {
         // Construir N Jugadores, cada uno con 2 Cartas de Bolsillo distintas
@@ -65,21 +67,24 @@ describe('Property 21: Orden del Showdown es una biyección ascendente', () => {
         // de valores 1..N (cada valor de estrella se usa exactamente una vez).
         const porJugador: Record<string, Ficha[]> = {};
         jugadores.forEach((jugador, i) => {
-          porJugador[jugador.id] = [{ color: 'ROJO', estrellas: permutacion[i]! }];
+          porJugador[jugador.id] = [
+            { color: "ROJO", estrellas: permutacion[i]! },
+          ];
         });
 
         const golpe: EstadoGolpe = {
           numero: 1,
-          ronda: 'SHOWDOWN',
+          ronda: "SHOWDOWN",
           baraja: [],
           comunitarias,
           fichas: {
             numJugadores: n,
             centro: [],
             porJugador,
-            colorActivo: 'ROJO',
+            colorActivo: "ROJO",
           },
           confirmados: [],
+          reveladoShowdown: jugadores.length,
         };
 
         const resultado = resolverShowdown(jugadores, golpe);

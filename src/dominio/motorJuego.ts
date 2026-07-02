@@ -32,16 +32,20 @@ import {
   type ResultadoPartida,
   type Ronda,
   type Semilla,
-} from './modelos';
-import { crearBarajaBarajada, repartirBolsillos, revelarComunitariasPorRonda } from './reparto';
-import { resolverShowdown, ordenJugadoresShowdown } from './showdown';
+} from "./modelos";
+import {
+  crearBarajaBarajada,
+  repartirBolsillos,
+  revelarComunitariasPorRonda,
+} from "./reparto";
+import { resolverShowdown, ordenJugadoresShowdown } from "./showdown";
 import {
   intercambiarConCentro,
   intercambiarConJugador,
   prepararFichas,
   todosTienenFichaDelColor,
   tomar,
-} from './gestorFichas';
+} from "./gestorFichas";
 
 // ===========================================================================
 // Mapeo Ronda → color de Ficha
@@ -56,30 +60,30 @@ import {
  */
 export function colorDeRonda(ronda: Ronda): ColorFicha {
   switch (ronda) {
-    case 'PRE_FLOP':
-      return 'BLANCO';
-    case 'FLOP':
-      return 'AMARILLO';
-    case 'TURN':
-      return 'NARANJA';
-    case 'RIVER':
-    case 'SHOWDOWN':
-      return 'ROJO';
+    case "PRE_FLOP":
+      return "BLANCO";
+    case "FLOP":
+      return "AMARILLO";
+    case "TURN":
+      return "NARANJA";
+    case "RIVER":
+    case "SHOWDOWN":
+      return "ROJO";
   }
 }
 
 /** Ronda que sigue a la indicada en el orden de un Golpe, o null si es Showdown. */
 function siguienteRonda(ronda: Ronda): Ronda | null {
   switch (ronda) {
-    case 'PRE_FLOP':
-      return 'FLOP';
-    case 'FLOP':
-      return 'TURN';
-    case 'TURN':
-      return 'RIVER';
-    case 'RIVER':
-      return 'SHOWDOWN';
-    case 'SHOWDOWN':
+    case "PRE_FLOP":
+      return "FLOP";
+    case "FLOP":
+      return "TURN";
+    case "TURN":
+      return "RIVER";
+    case "RIVER":
+      return "SHOWDOWN";
+    case "SHOWDOWN":
       return null;
   }
 }
@@ -102,13 +106,13 @@ function siguienteRonda(ronda: Ronda): Ronda | null {
  *   el Gestor_Fichas la toma e intercambio de Fichas del color activo.
  */
 export type Accion =
-  | { tipo: 'CONFIRMAR'; jugadorId: string }
-  | { tipo: 'AVANZAR_AUTOMATICO' }
-  | { tipo: 'REVELAR_SHOWDOWN' }
-  | { tipo: 'RESOLVER_SHOWDOWN' }
-  | { tipo: 'TOMAR_FICHA'; jugadorId: string; ficha: Ficha }
-  | { tipo: 'INTERCAMBIAR_CENTRO'; jugadorId: string; fichaCentro: Ficha }
-  | { tipo: 'INTERCAMBIAR_JUGADOR'; jugadorA: string; jugadorB: string };
+  | { tipo: "CONFIRMAR"; jugadorId: string }
+  | { tipo: "AVANZAR_AUTOMATICO" }
+  | { tipo: "REVELAR_SHOWDOWN" }
+  | { tipo: "RESOLVER_SHOWDOWN" }
+  | { tipo: "TOMAR_FICHA"; jugadorId: string; ficha: Ficha }
+  | { tipo: "INTERCAMBIAR_CENTRO"; jugadorId: string; fichaCentro: Ficha }
+  | { tipo: "INTERCAMBIAR_JUGADOR"; jugadorA: string; jugadorB: string };
 
 // ===========================================================================
 // Inicio de la Partida
@@ -154,7 +158,7 @@ export function iniciarPartida(
 
   const golpeActual: EstadoGolpe = {
     numero: 1,
-    ronda: 'PRE_FLOP',
+    ronda: "PRE_FLOP",
     baraja: resto,
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
@@ -163,7 +167,7 @@ export function iniciarPartida(
   };
 
   return {
-    fase: 'EN_CURSO',
+    fase: "EN_CURSO",
     jugadores: jugadoresConBolsillo,
     golpeActual,
     golpesJugados: 0,
@@ -173,6 +177,7 @@ export function iniciarPartida(
     semilla,
     ajustes: ajustes ?? AJUSTES_POR_DEFECTO,
     historialGolpes: [],
+    historialShowdowns: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
   };
@@ -184,7 +189,7 @@ export function iniciarPartida(
 
 /** Construye un resultado de acción fallido con el código y mensaje dados. */
 function errorAccion(
-  codigo: 'PARTIDA_FINALIZADA' | 'ACCION_NO_PERMITIDA',
+  codigo: "PARTIDA_FINALIZADA" | "ACCION_NO_PERMITIDA",
   mensaje: string,
 ): ResultadoAccion {
   return { ok: false, error: { codigo, mensaje } };
@@ -213,42 +218,56 @@ export function aplicarAccion(
   estado: EstadoPartida,
   accion: Accion,
 ): ResultadoAccion {
-  if (estado.fase === 'FINALIZADA') {
+  if (estado.fase === "FINALIZADA") {
     return errorAccion(
-      'PARTIDA_FINALIZADA',
-      'La Partida ya ha terminado; no se admiten más acciones.',
+      "PARTIDA_FINALIZADA",
+      "La Partida ya ha terminado; no se admiten más acciones.",
     );
   }
-  if (estado.fase !== 'EN_CURSO' || estado.golpeActual === null) {
+  if (estado.fase !== "EN_CURSO" || estado.golpeActual === null) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'No hay un Golpe en curso sobre el que actuar.',
+      "ACCION_NO_PERMITIDA",
+      "No hay un Golpe en curso sobre el que actuar.",
     );
   }
 
   const golpe = estado.golpeActual;
   switch (accion.tipo) {
-    case 'CONFIRMAR':
+    case "CONFIRMAR":
       return confirmar(estado, golpe, accion.jugadorId);
-    case 'AVANZAR_AUTOMATICO':
+    case "AVANZAR_AUTOMATICO":
       return avanzarAutomatico(estado, golpe);
-    case 'REVELAR_SHOWDOWN':
+    case "REVELAR_SHOWDOWN":
       return revelarShowdown(estado, golpe);
-    case 'RESOLVER_SHOWDOWN':
+    case "RESOLVER_SHOWDOWN":
       return resolver(estado, golpe);
-    case 'TOMAR_FICHA':
-      return aplicarFichasConCancelacion(estado, golpe, tomar(golpe.fichas, accion.jugadorId, accion.ficha), [
-        { tipo: 'FICHA_TOMADA', jugadorId: accion.jugadorId, ficha: accion.ficha },
-      ], [accion.jugadorId]);
-    case 'INTERCAMBIAR_CENTRO':
+    case "TOMAR_FICHA":
       return aplicarFichasConCancelacion(
         estado,
         golpe,
-        intercambiarConCentro(golpe.fichas, accion.jugadorId, accion.fichaCentro),
-        [{ tipo: 'FICHA_INTERCAMBIADA', jugadorId: accion.jugadorId }],
+        tomar(golpe.fichas, accion.jugadorId, accion.ficha),
+        [
+          {
+            tipo: "FICHA_TOMADA",
+            jugadorId: accion.jugadorId,
+            ficha: accion.ficha,
+          },
+        ],
         [accion.jugadorId],
       );
-    case 'INTERCAMBIAR_JUGADOR':
+    case "INTERCAMBIAR_CENTRO":
+      return aplicarFichasConCancelacion(
+        estado,
+        golpe,
+        intercambiarConCentro(
+          golpe.fichas,
+          accion.jugadorId,
+          accion.fichaCentro,
+        ),
+        [{ tipo: "FICHA_INTERCAMBIADA", jugadorId: accion.jugadorId }],
+        [accion.jugadorId],
+      );
+    case "INTERCAMBIAR_JUGADOR":
       return aplicarFichasConCancelacion(
         estado,
         golpe,
@@ -258,7 +277,7 @@ export function aplicarAccion(
           accion.jugadorB,
           golpe.fichas.colorActivo,
         ),
-        [{ tipo: 'FICHA_INTERCAMBIADA', jugadorId: accion.jugadorA }],
+        [{ tipo: "FICHA_INTERCAMBIADA", jugadorId: accion.jugadorA }],
         [accion.jugadorA, accion.jugadorB],
       );
   }
@@ -283,7 +302,11 @@ function aplicarFichasConCancelacion(
   const confirmados = golpe.confirmados.filter(
     (id) => !jugadoresACancelar.includes(id),
   );
-  const nuevoGolpe: EstadoGolpe = { ...golpe, fichas: resultado.estado, confirmados };
+  const nuevoGolpe: EstadoGolpe = {
+    ...golpe,
+    fichas: resultado.estado,
+    confirmados,
+  };
   return {
     ok: true,
     estado: {
@@ -303,15 +326,19 @@ function aplicarFichasConCancelacion(
  * ya (idempotente: si ya confirmó no hace nada extra). Cuando TODOS los jugadores
  * han confirmado, ejecuta la lógica de avance de ronda automáticamente.
  */
-function confirmar(estado: EstadoPartida, golpe: EstadoGolpe, jugadorId: string): ResultadoAccion {
+function confirmar(
+  estado: EstadoPartida,
+  golpe: EstadoGolpe,
+  jugadorId: string,
+): ResultadoAccion {
   const colorActivo = colorDeRonda(golpe.ronda);
   const fichasJugador = golpe.fichas.porJugador[jugadorId] ?? [];
   const tieneFichaActiva = fichasJugador.some((f) => f.color === colorActivo);
 
   if (!tieneFichaActiva) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'No tienes una ficha del color de esta fase; no puedes confirmar.',
+      "ACCION_NO_PERMITIDA",
+      "No tienes una ficha del color de esta fase; no puedes confirmar.",
     );
   }
 
@@ -325,7 +352,9 @@ function confirmar(estado: EstadoPartida, golpe: EstadoGolpe, jugadorId: string)
   }
 
   const confirmados = [...golpe.confirmados, jugadorId];
-  const todosConfirmados = estado.jugadores.every((j) => confirmados.includes(j.id));
+  const todosConfirmados = estado.jugadores.every((j) =>
+    confirmados.includes(j.id),
+  );
 
   if (!todosConfirmados) {
     // Aún faltan jugadores por confirmar: solo actualizar el set de confirmados.
@@ -346,11 +375,14 @@ function confirmar(estado: EstadoPartida, golpe: EstadoGolpe, jugadorId: string)
  * Avance automático de ronda cuando expira el temporizador: exige que todos
  * tengan ficha del color activo y avanza sin confirmaciones manuales.
  */
-function avanzarAutomatico(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
-  if (golpe.ronda === 'SHOWDOWN') {
+function avanzarAutomatico(
+  estado: EstadoPartida,
+  golpe: EstadoGolpe,
+): ResultadoAccion {
+  if (golpe.ronda === "SHOWDOWN") {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'En el Showdown no hay rondas que avanzar automáticamente.',
+      "ACCION_NO_PERMITIDA",
+      "En el Showdown no hay rondas que avanzar automáticamente.",
     );
   }
 
@@ -372,30 +404,30 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
 
   if (!todosTienenFichaDelColor(golpe.fichas, colorActivo, jugadorIds)) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'Aún no todos los miembros han tomado su ficha de esta fase.',
+      "ACCION_NO_PERMITIDA",
+      "Aún no todos los miembros han tomado su ficha de esta fase.",
     );
   }
 
   const proxima = siguienteRonda(golpe.ronda);
   if (proxima === null) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'El Golpe ya está en su Showdown; no hay más Rondas que avanzar.',
+      "ACCION_NO_PERMITIDA",
+      "El Golpe ya está en su Showdown; no hay más Rondas que avanzar.",
     );
   }
 
-  if (proxima === 'SHOWDOWN') {
+  if (proxima === "SHOWDOWN") {
     const nuevoGolpe: EstadoGolpe = {
       ...golpe,
-      ronda: 'SHOWDOWN',
+      ronda: "SHOWDOWN",
       confirmados: [],
       reveladoShowdown: 0,
     };
     return {
       ok: true,
       estado: { ...estado, golpeActual: nuevoGolpe },
-      eventos: [{ tipo: 'RONDA_AVANZADA', ronda: 'SHOWDOWN' }],
+      eventos: [{ tipo: "RONDA_AVANZADA", ronda: "SHOWDOWN" }],
     };
   }
 
@@ -419,26 +451,29 @@ function avanzar(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   return {
     ok: true,
     estado: { ...estado, golpeActual: nuevoGolpe },
-    eventos: [{ tipo: 'RONDA_AVANZADA', ronda: proxima }],
+    eventos: [{ tipo: "RONDA_AVANZADA", ronda: proxima }],
   };
 }
 
 /**
  * Revela la siguiente mano del Showdown en orden ascendente de Ficha roja.
  */
-function revelarShowdown(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
-  if (golpe.ronda !== 'SHOWDOWN') {
+function revelarShowdown(
+  estado: EstadoPartida,
+  golpe: EstadoGolpe,
+): ResultadoAccion {
+  if (golpe.ronda !== "SHOWDOWN") {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'Solo se pueden revelar manos durante el Showdown.',
+      "ACCION_NO_PERMITIDA",
+      "Solo se pueden revelar manos durante el Showdown.",
     );
   }
 
   const total = estado.jugadores.length;
   if (golpe.reveladoShowdown >= total) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'Todas las manos ya fueron reveladas.',
+      "ACCION_NO_PERMITIDA",
+      "Todas las manos ya fueron reveladas.",
     );
   }
 
@@ -452,7 +487,7 @@ function revelarShowdown(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAc
   return {
     ok: true,
     estado: { ...estado, golpeActual: nuevoGolpe },
-    eventos: [{ tipo: 'SHOWDOWN_REVELADO', jugadorId }],
+    eventos: [{ tipo: "SHOWDOWN_REVELADO", jugadorId }],
   };
 }
 
@@ -488,18 +523,18 @@ function revelarShowdown(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAc
  * _Requirements: 8.6, 8.7, 9.1, 9.2, 9.4, 12.5_
  */
 function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
-  if (golpe.ronda !== 'SHOWDOWN') {
+  if (golpe.ronda !== "SHOWDOWN") {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'El Golpe aún no ha llegado a su Showdown; no puede resolverse.',
+      "ACCION_NO_PERMITIDA",
+      "El Golpe aún no ha llegado a su Showdown; no puede resolverse.",
     );
   }
 
   const total = estado.jugadores.length;
   if (golpe.reveladoShowdown < total) {
     return errorAccion(
-      'ACCION_NO_PERMITIDA',
-      'Aún faltan manos por revelar antes de resolver el Showdown.',
+      "ACCION_NO_PERMITIDA",
+      "Aún faltan manos por revelar antes de resolver el Showdown.",
     );
   }
 
@@ -514,9 +549,9 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   // aquí y lo conserva iniciarSiguienteGolpe.
   let resultado: ResultadoPartida | null = estado.resultado;
   if (bovedasDoradas >= 3) {
-    resultado = 'VICTORIA';
+    resultado = "VICTORIA";
   } else if (alarmasRojas >= 3) {
-    resultado = 'DERROTA';
+    resultado = "DERROTA";
   }
 
   const bolsillosRevelados: Record<string, [Carta, Carta]> = {};
@@ -548,6 +583,10 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
         alarmasTras: alarmasRojas,
       },
     ],
+    historialShowdowns: [
+      ...(estado.historialShowdowns ?? []),
+      ultimoShowdownResuelto,
+    ],
     ultimoResultadoGolpe: { numero: golpe.numero, exito: showdown.exito },
     ultimoShowdownResuelto,
   };
@@ -557,9 +596,14 @@ function resolver(estado: EstadoPartida, golpe: EstadoGolpe): ResultadoAccion {
   // quinto Golpe; no se duplica el conteo.
   const siguiente = iniciarSiguienteGolpe(estadoTrasConteo);
 
-  const eventos: EventoJuego[] = [{ tipo: 'SHOWDOWN_RESUELTO', exito: showdown.exito }];
-  if (siguiente.fase === 'FINALIZADA' && siguiente.resultado !== null) {
-    eventos.push({ tipo: 'PARTIDA_FINALIZADA', resultado: siguiente.resultado });
+  const eventos: EventoJuego[] = [
+    { tipo: "SHOWDOWN_RESUELTO", exito: showdown.exito },
+  ];
+  if (siguiente.fase === "FINALIZADA" && siguiente.resultado !== null) {
+    eventos.push({
+      tipo: "PARTIDA_FINALIZADA",
+      resultado: siguiente.resultado,
+    });
   }
 
   return { ok: true, estado: siguiente, eventos };
@@ -609,7 +653,8 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
   // Contabiliza el Golpe que se acaba de resolver.
   const golpesJugados = estado.golpesJugados + 1;
 
-  const finPorContadores = estado.bovedasDoradas >= 3 || estado.alarmasRojas >= 3;
+  const finPorContadores =
+    estado.bovedasDoradas >= 3 || estado.alarmasRojas >= 3;
   const alcanzadoMaximo = golpesJugados >= MAX_GOLPES;
 
   // No procede iniciar un nuevo Golpe: la Partida finaliza. El `resultado` se
@@ -617,7 +662,7 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
   if (finPorContadores || alcanzadoMaximo) {
     return {
       ...estado,
-      fase: 'FINALIZADA',
+      fase: "FINALIZADA",
       golpeActual: null,
       golpesJugados,
     };
@@ -637,7 +682,7 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
 
   const golpeActual: EstadoGolpe = {
     numero,
-    ronda: 'PRE_FLOP',
+    ronda: "PRE_FLOP",
     baraja: resto,
     comunitarias: [],
     fichas: prepararFichas(numJugadores),
@@ -647,7 +692,7 @@ export function iniciarSiguienteGolpe(estado: EstadoPartida): EstadoPartida {
 
   return {
     ...estado,
-    fase: 'EN_CURSO',
+    fase: "EN_CURSO",
     jugadores,
     golpeActual,
     golpesJugados,

@@ -1,21 +1,30 @@
-import { describe, it, expect } from 'vitest';
-import { fc, verificarPropiedad } from './pbt';
-import type { Carta, EstadoGolpe, Ficha, Jugador } from '../src/dominio/modelos';
+import { describe, it, expect } from "vitest";
+import { fc, verificarPropiedad } from "./pbt";
+import type {
+  Carta,
+  EstadoGolpe,
+  Ficha,
+  Jugador,
+} from "../src/dominio/modelos";
 import {
   crearBarajaBarajada,
   repartirBolsillos,
   revelarFlop,
   revelarTurn,
   revelarRiver,
-} from '../src/dominio/reparto';
-import { resolverShowdown } from '../src/dominio/showdown';
-import { comparar, evaluar } from '../src/dominio/evaluador';
+} from "../src/dominio/reparto";
+import { resolverShowdown } from "../src/dominio/showdown";
+import { comparar, evaluar } from "../src/dominio/evaluador";
 
 // Prueba basada en propiedades de la resolución del Showdown (fast-check + Vitest).
 // _Requirements: 8.3, 8.4_
 
 /** Generador de semillas arbitrarias para barajar de forma determinista. */
-const genSemilla = fc.oneof(fc.integer(), fc.double({ noNaN: true }), fc.string());
+const genSemilla = fc.oneof(
+  fc.integer(),
+  fc.double({ noNaN: true }),
+  fc.string(),
+);
 
 /** Número de Jugadores N entre 3 y 6 (Modo Básico). */
 const genN = fc.integer({ min: 3, max: 6 });
@@ -74,31 +83,32 @@ function construirShowdown(
   for (let i = 0; i < n; i++) {
     const id = `J${i}`;
     jugadores.push({ id, nombre: `Jugador ${i}`, bolsillo: bolsillos[i]! });
-    porJugador[id] = [{ color: 'ROJO', estrellas: estrellas[i]! }];
+    porJugador[id] = [{ color: "ROJO", estrellas: estrellas[i]! }];
   }
 
   const comunitarias: Carta[] = river.comunitarias;
   const golpe: EstadoGolpe = {
     numero: 1,
-    ronda: 'SHOWDOWN',
+    ronda: "SHOWDOWN",
     baraja: river.resto,
     comunitarias,
     fichas: {
       numJugadores: n,
       centro: [],
       porJugador,
-      colorActivo: 'ROJO',
+      colorActivo: "ROJO",
     },
     confirmados: [],
+    reveladoShowdown: jugadores.length,
   };
 
   return { jugadores, golpe };
 }
 
-describe('Resolución del Showdown (PBT)', () => {
+describe("Resolución del Showdown (PBT)", () => {
   // Feature: the-gang-game, Property 22: Para cualquier conjunto de manos de los Jugadores ordenadas según el valor ascendente de sus Fichas rojas, el Golpe se declara exitoso si y solo si la secuencia de fuerzas de las manos en ese orden es no decreciente según el comparador del Evaluador_Manos; en caso contrario se declara fracasado.
   // Validates: Requirements 8.3, 8.4
-  it('Property 22: el éxito del Golpe equivale a fuerza no decreciente en el orden', () => {
+  it("Property 22: el éxito del Golpe equivale a fuerza no decreciente en el orden", () => {
     verificarPropiedad(
       fc.property(genCaso, ({ n, semilla, estrellas }) => {
         const { jugadores, golpe } = construirShowdown(n, semilla, estrellas);
@@ -123,10 +133,20 @@ describe('Resolución del Showdown (PBT)', () => {
 
           // Re-evaluamos las manos de forma independiente desde los bolsillos y
           // las comunitarias para no depender de la mano almacenada en `orden`.
-          const jugAnterior = jugadores.find((j) => j.id === anterior.jugadorId)!;
-          const jugPosterior = jugadores.find((j) => j.id === posterior.jugadorId)!;
-          const evalAnterior = evaluar(jugAnterior.bolsillo, golpe.comunitarias);
-          const evalPosterior = evaluar(jugPosterior.bolsillo, golpe.comunitarias);
+          const jugAnterior = jugadores.find(
+            (j) => j.id === anterior.jugadorId,
+          )!;
+          const jugPosterior = jugadores.find(
+            (j) => j.id === posterior.jugadorId,
+          )!;
+          const evalAnterior = evaluar(
+            jugAnterior.bolsillo,
+            golpe.comunitarias,
+          );
+          const evalPosterior = evaluar(
+            jugPosterior.bolsillo,
+            golpe.comunitarias,
+          );
           expect(evalAnterior.ok).toBe(true);
           expect(evalPosterior.ok).toBe(true);
           if (!evalAnterior.ok || !evalPosterior.ok) {
