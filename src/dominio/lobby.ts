@@ -10,6 +10,7 @@ import {
   AJUSTES_POR_DEFECTO,
   MAX_JUGADORES,
   MIN_JUGADORES,
+  TERMINACION_DESCONEXION_MS,
   type ErrorJuego,
   type Espectador,
   type EstadoPartida,
@@ -414,5 +415,49 @@ export function volverAlLobby(estado: EstadoPartida): EstadoPartida {
     historialGolpes: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
+    terminacionPorDesconexion: null,
   };
+}
+
+/** Inicia la cuenta atrás por desconexión de un ladrón durante EN_CURSO. */
+export function iniciarTerminacionPorDesconexion(
+  estado: EstadoPartida,
+  jugadorId: string,
+  ahoraMs: number,
+): EstadoPartida {
+  if (estado.fase !== 'EN_CURSO') {
+    return estado;
+  }
+  const jugador = estado.jugadores.find((j) => j.id === jugadorId);
+  if (jugador === undefined) {
+    return estado;
+  }
+  return {
+    ...estado,
+    terminacionPorDesconexion: {
+      jugadorId,
+      jugadorNombre: jugador.nombre,
+      terminaEn: ahoraMs + TERMINACION_DESCONEXION_MS,
+    },
+  };
+}
+
+/** Cancela la terminación pendiente por desconexión. */
+export function cancelarTerminacionPorDesconexion(estado: EstadoPartida): EstadoPartida {
+  if (estado.terminacionPorDesconexion == null) {
+    return estado;
+  }
+  return { ...estado, terminacionPorDesconexion: null };
+}
+
+/** Si expiró la cuenta atrás, vuelve al lobby; si no, sin cambios. */
+export function aplicarTerminacionPorDesconexionExpirada(
+  estado: EstadoPartida,
+  ahoraMs: number,
+): EstadoPartida {
+  const pendiente = estado.terminacionPorDesconexion;
+  if (pendiente == null || pendiente.terminaEn > ahoraMs) {
+    return estado;
+  }
+  return volverAlLobby(estado);
 }

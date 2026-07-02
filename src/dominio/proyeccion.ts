@@ -27,6 +27,7 @@ import {
   type ResultadoGolpeReciente,
   type ResultadoPartida,
   type Ronda,
+  type TerminacionPorDesconexion,
 } from './modelos';
 import { ordenJugadoresShowdown } from './showdown';
 
@@ -141,6 +142,8 @@ export interface VistaPartida {
   ultimoResultadoGolpe: ResultadoGolpeReciente | null;
   /** Showdown recién resuelto con cartas reveladas, o null. */
   ultimoShowdownResuelto: VistaShowdownResuelto | null;
+  /** Cuenta atrás por desconexión de un ladrón, o null. */
+  terminacionPorDesconexion: TerminacionPorDesconexion | null;
 }
 
 /** Vista del Showdown ya resuelto (persiste hasta movimiento de fichas). */
@@ -338,6 +341,7 @@ export function proyectarEstadoPara(
     historialGolpes: [...(estado.historialGolpes ?? [])],
     ultimoResultadoGolpe: estado.ultimoResultadoGolpe ?? null,
     ultimoShowdownResuelto: proyectarShowdownResuelto(estado),
+    terminacionPorDesconexion: estado.terminacionPorDesconexion ?? null,
     ...(estado.ajustes !== undefined ? { ajustes: estado.ajustes } : {}),
   };
 }

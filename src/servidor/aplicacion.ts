@@ -94,7 +94,29 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
   const conexiones = new Map<string, ConexionCliente>();
   const difusor = crearDifusor(conexiones, gestor, coordinador);
 
-  /** El avance de ronda es solo por confirmación manual; no hay temporizador. */
+  let timerTerminacionDesconexion: ReturnType<typeof setTimeout> | null = null;
+
+  function limpiarTimerTerminacionDesconexion(): void {
+    if (timerTerminacionDesconexion !== null) {
+      clearTimeout(timerTerminacionDesconexion);
+      timerTerminacionDesconexion = null;
+    }
+  }
+
+  function programarTerminacionDesconexion(): void {
+    limpiarTimerTerminacionDesconexion();
+    const pendiente = coordinador.obtenerEstado().terminacionPorDesconexion;
+    if (pendiente == null) {
+      return;
+    }
+    const restante = Math.max(0, pendiente.terminaEn - Date.now());
+    timerTerminacionDesconexion = setTimeout(() => {
+      timerTerminacionDesconexion = null;
+      aplicarResultado(coordinador.ejecutarTerminacionPorDesconexionExpirada(), null);
+    }, restante);
+  }
+
+  /** El avance de ronda es solo por confirmación manual; no hay temporizador de ronda. */
   function asegurarSinTemporizador(): void {
     coordinador.fijarTemporizadorFinAt(null);
   }
@@ -231,8 +253,12 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
     const sessionId = conexionResultado.sesion.sessionId;
 
     if (conexionResultado.esReconexion) {
-      // Reincorporación (Lobby o Partida en curso): el estado ya está
-      // preservado; basta con reenviarle (y a todos) la vista actual.
+      const pendiente = coordinador.obtenerEstado().terminacionPorDesconexion;
+      if (pendiente !== null && pendiente !== undefined && pendiente.jugadorId === sessionId) {
+        limpiarTimerTerminacionDesconexion();
+        aplicarResultado(coordinador.cancelarTerminacionPorDesconexion(), conexion);
+        return;
+      }
       difusor.difundir();
       return;
     }
@@ -293,13 +319,22 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
     },
 
     alDesconectar(conexion: ConexionCliente): void {
-      // Retiramos la conexión del mapa vivo para que el Difusor no le envíe más.
       conexiones.delete(conexion.id);
 
-      gestor.desconectar(conexion.id);
+      const afectada = gestor.desconectar(conexion.id);
+      const estado = coordinador.obtenerEstado();
+      const esJugadorDesconectado =
+        afectada !== null &&
+        estado.fase === 'EN_CURSO' &&
+        estado.jugadores.some((j) => j.id === afectada.sessionId);
+
+      if (esJugadorDesconectado) {
+        aplicarResultado(coordinador.registrarDesconexionJugador(afectada!.sessionId), null);
+        programarTerminacionDesconexion();
+        return;
+      }
 
       asegurarSinTemporizador();
-      // Difundimos el nuevo estado (p. ej. miembro desconectado en Lobby o Partida).
       difusor.difundir();
     },
   };

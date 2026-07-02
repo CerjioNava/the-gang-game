@@ -25,6 +25,7 @@ import {
   htmlTemporizadorHud,
   type MesaPokerContexto,
 } from './mesaPokerHtml';
+import { actualizarAvisoDesconexion } from './mesaAvisoDesconexion';
 import { actualizarToastResultado, limpiarToastMesa } from './mesaToast';
 import { htmlShowdownOrdenMesa, showdownMesaCompleto } from '../showdown';
 import { enlazarEventosMesa, recordatorioEsperaHtml } from './mesaEventos';
@@ -156,6 +157,7 @@ function aplicarParches(
   }
 
   actualizarToastResultado(mesa, vista);
+  actualizarAvisoDesconexion(mesa, vista);
 
   let movimientosFichas: ReturnType<typeof detectarMovimientosFichas> = [];
   const rectsOrigen = new Map<string, DOMRect>();

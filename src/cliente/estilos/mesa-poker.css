@@ -121,6 +121,37 @@
     transform 0.4s ease;
 }
 
+.mesa-poker__aviso-desconexion {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: min(92vw, 28rem);
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(120, 55, 15, 0.95), rgba(70, 30, 8, 0.92));
+  border: 2px solid rgba(255, 180, 80, 0.55);
+  color: #fff4e0;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+
+.mesa-poker__aviso-desconexion strong {
+  font-size: 1.02em;
+}
+
+.mesa-poker__aviso-cuenta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mesa-poker__toast--saliendo {
     transition: opacity 0.15s ease;

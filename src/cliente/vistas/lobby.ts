@@ -15,6 +15,7 @@ export interface AccionesLobby extends AccionesTitleScreen, AccionesIdentidad {
   iniciar(): void;
   expulsarMiembro(jugadorId: string): void;
   volverAlMenu(): void;
+  reconectarConAlias(nombre: string): void;
 }
 
 const JUGADORES_MIN = 3;
@@ -128,6 +129,65 @@ function enlazarVolverMenu(contenedor: HTMLElement, acciones: AccionesLobby): vo
     ?.addEventListener('click', () => {
       acciones.volverAlMenu();
     });
+}
+
+/** Pantalla para reincorporarse a una partida EN_CURSO con el mismo alias. */
+export function renderizarReconexion(
+  contenedor: HTMLElement,
+  estado: EstadoCliente,
+  acciones: AccionesLobby,
+): void {
+  const credencial = estado.nombreBorrador.trim();
+  const reconectando = estado.reconectando;
+  const aliasPrellenado = credencial.length > 0 ? credencial : '';
+
+  contenedor.innerHTML = `
+    <section class="lobby-room lobby-room--reconexion">
+      <header class="lobby-room__cabecera">
+        <h2 class="lobby-room__titulo">Reconectar al golpe</h2>
+        <p class="lobby-room__intro">
+          La partida sigue en marcha. Introduce el mismo alias con el que entraste para recuperar tu sitio.
+        </p>
+      </header>
+      <div class="lobby-room__panel lobby-room__panel--reconexion">
+        ${
+          reconectando
+            ? `<p class="lobby-room__reconectando" role="status">Reconectando…</p>`
+            : `
+        <label class="lobby-room__etiq" for="reconexion-alias">Tu alias</label>
+        <input
+          type="text"
+          id="reconexion-alias"
+          class="lobby-room__input"
+          maxlength="20"
+          value="${escapar(aliasPrellenado)}"
+          placeholder="El alias de tu ladrón"
+          ${reconectando ? 'disabled' : ''}
+        />
+        <button type="button" class="boton boton--golpe lobby-room__reconectar" data-accion="RECONNECT">
+          Volver a la banda
+        </button>`
+        }
+        <button type="button" class="boton boton--secundario lobby-room__espectador-alt" data-accion="ENTRAR_ESPECTADOR">
+          Observar como espectador
+        </button>
+      </div>
+    </section>
+  `;
+
+  if (!reconectando) {
+    contenedor.querySelector<HTMLButtonElement>('[data-accion="RECONNECT"]')?.addEventListener('click', () => {
+      const input = contenedor.querySelector<HTMLInputElement>('#reconexion-alias');
+      const nombre = input?.value.trim() ?? '';
+      if (nombre.length > 0) {
+        acciones.reconectarConAlias(nombre);
+      }
+    });
+  }
+
+  contenedor.querySelector<HTMLButtonElement>('[data-accion="ENTRAR_ESPECTADOR"]')?.addEventListener('click', () => {
+    acciones.entrarComoEspectador();
+  });
 }
 
 /** Pantalla para unirse como espectador con la Partida ya en curso. */

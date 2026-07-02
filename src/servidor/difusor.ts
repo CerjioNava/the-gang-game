@@ -153,7 +153,8 @@ export class Difusor {
    * @returns `true` si se envió la vista; `false` si no aplica o falló el envío.
    */
   enviarVistaInvitado(conexion: ConexionCliente): boolean {
-    if (this.#coordinador.obtenerEstado().fase !== 'LOBBY') {
+    const fase = this.#coordinador.obtenerEstado().fase;
+    if (fase !== 'LOBBY' && fase !== 'EN_CURSO') {
       return false;
     }
     const conexionPorJugador = new Map(
@@ -178,7 +179,8 @@ export class Difusor {
   }
 
   #difundirLobbyInvitados(conexionPorJugador: ReadonlyMap<string, boolean>): number {
-    if (this.#coordinador.obtenerEstado().fase !== 'LOBBY') {
+    const fase = this.#coordinador.obtenerEstado().fase;
+    if (fase !== 'LOBBY' && fase !== 'EN_CURSO') {
       return 0;
     }
     const vistaBase = this.#coordinador.obtenerVistaInvitado();

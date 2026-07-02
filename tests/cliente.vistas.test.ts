@@ -30,7 +30,9 @@ import {
   reiniciarToastsDescartadosParaPruebas,
 } from '../src/cliente/vistas/mesa/mesaToast';
 import { ordenarPorFuerzaMano } from '../src/cliente/vistas/showdown';
-import { renderizarLobby, type AccionesLobby } from '../src/cliente/vistas/lobby';
+import { renderizarLobby, renderizarReconexion, type AccionesLobby } from '../src/cliente/vistas/lobby';
+import { htmlAvisoTerminacionDesconexion } from '../src/cliente/vistas/mesa/mesaPokerHtml';
+import { actualizarAvisoDesconexion } from '../src/cliente/vistas/mesa/mesaAvisoDesconexion';
 import {
   CATEGORIAS_RANKING,
   NOMBRE_CATEGORIA,
@@ -111,6 +113,7 @@ function vistaEnCurso(): VistaPartida {
     historialGolpes: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
+    terminacionPorDesconexion: null,
   };
 }
 
@@ -123,6 +126,7 @@ function estadoCliente(vista: VistaPartida): EstadoCliente {
     descripcionBorrador: '',
     aliasElegido: null,
     modoUnirse: 'JUGADOR',
+    reconectando: false,
   };
 }
 
@@ -623,12 +627,14 @@ describe('Vista de lobby: pantalla de título', () => {
           historialGolpes: [],
           ultimoResultadoGolpe: null,
           ultimoShowdownResuelto: null,
+          terminacionPorDesconexion: null,
           ajustes: { sinKickers: true },
         },
         error: null,
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'JUGADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -664,6 +670,7 @@ describe('Vista de lobby: volver al menú', () => {
       historialGolpes: [],
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
+      terminacionPorDesconexion: null,
       ajustes: { sinKickers: true },
     };
   }
@@ -684,6 +691,7 @@ describe('Vista de lobby: volver al menú', () => {
       historialGolpes: [],
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
+      terminacionPorDesconexion: null,
       ajustes: { sinKickers: true },
     };
   }
@@ -700,6 +708,7 @@ describe('Vista de lobby: volver al menú', () => {
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'JUGADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -722,6 +731,7 @@ describe('Vista de lobby: volver al menú', () => {
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'ESPECTADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -753,6 +763,7 @@ describe('Vista de lobby: iniciar partida', () => {
       historialGolpes: [],
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
+      terminacionPorDesconexion: null,
       ajustes: { sinKickers: true },
     };
   }
@@ -769,6 +780,7 @@ describe('Vista de lobby: iniciar partida', () => {
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'JUGADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -793,6 +805,7 @@ describe('Vista de lobby: iniciar partida', () => {
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'JUGADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -815,6 +828,7 @@ describe('Vista de lobby: iniciar partida', () => {
         nombreBorrador: '',
         descripcionBorrador: '',
         aliasElegido: null,
+        reconectando: false,
         modoUnirse: 'JUGADOR',
       },
       ACCIONES_LOBBY_INERTES,
@@ -822,6 +836,113 @@ describe('Vista de lobby: iniciar partida', () => {
 
     expect(contenedor.textContent).not.toContain('Ajustes del Golpe');
     expect(contenedor.querySelector('#check-sin-kickers')).toBeNull();
+    contenedor.remove();
+  });
+});
+
+describe('Vista de la mesa: aviso de desconexión', () => {
+  it('muestra banner con nombre del ladrón y cuenta atrás', () => {
+    const vista: VistaPartida = {
+      ...vistaEnCurso(),
+      terminacionPorDesconexion: {
+        jugadorId: 'j3',
+        jugadorNombre: 'El Manos',
+        terminaEn: Date.now() + 8_000,
+      },
+    };
+    const html = htmlAvisoTerminacionDesconexion(vista);
+
+    expect(html).toContain('mesa-poker__aviso-desconexion');
+    expect(html).toContain('El Manos se desconectó');
+    expect(html).toMatch(/mesa-poker__aviso-cuenta">\d+/);
+  });
+
+  it('actualiza solo la cuenta del banner en el DOM', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
+    const mesa = contenedor.querySelector<HTMLElement>('.mesa-poker');
+    expect(mesa).not.toBeNull();
+    if (mesa === null) {
+      return;
+    }
+
+    const terminaEn = Date.now() + 5_000;
+    actualizarAvisoDesconexion(mesa, {
+      ...vistaEnCurso(),
+      terminacionPorDesconexion: {
+        jugadorId: 'j3',
+        jugadorNombre: 'El Manos',
+        terminaEn,
+      },
+    });
+
+    const banner = mesa.querySelector('.mesa-poker__aviso-desconexion');
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain('El Manos se desconectó');
+
+    actualizarAvisoDesconexion(mesa, {
+      ...vistaEnCurso(),
+      terminacionPorDesconexion: {
+        jugadorId: 'j3',
+        jugadorNombre: 'El Manos',
+        terminaEn: terminaEn - 2_000,
+      },
+    });
+
+    const cuenta = mesa.querySelector('.mesa-poker__aviso-cuenta');
+    expect(cuenta?.textContent).toMatch(/^\d+$/);
+  });
+});
+
+describe('Vista de lobby: reconexión en EN_CURSO', () => {
+  it('muestra alias pre-rellenado y botón para volver a la banda', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+
+    renderizarReconexion(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: null,
+        error: null,
+        nombreBorrador: 'La Sombra',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        reconectando: false,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.querySelector('.lobby-room--reconexion')).not.toBeNull();
+    expect(contenedor.querySelector<HTMLInputElement>('#reconexion-alias')?.value).toBe(
+      'La Sombra',
+    );
+    expect(contenedor.textContent).toContain('Volver a la banda');
+    contenedor.remove();
+  });
+
+  it('muestra estado reconectando sin botón de envío', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+
+    renderizarReconexion(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: null,
+        error: null,
+        nombreBorrador: 'La Sombra',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        reconectando: true,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.querySelector('.lobby-room__reconectando')).not.toBeNull();
+    expect(contenedor.querySelector('[data-accion="RECONNECT"]')).toBeNull();
     contenedor.remove();
   });
 });

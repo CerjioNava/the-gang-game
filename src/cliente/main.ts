@@ -31,6 +31,12 @@ import { type AccionesLobby } from './vistas/lobby';
 import { type AccionesMesa } from './vistas/mesa';
 import { montarRanking } from './vistas/ranking';
 import type { Ficha } from './protocolo';
+import {
+  cargarCredencial,
+  limpiarCredencial,
+  mensajeUnirseDesdeCredencial,
+  persistirDesdeVista,
+} from './persistenciaSesion';
 
 const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 20;
@@ -46,6 +52,15 @@ const store = new StoreCliente();
 const conexion = new ConexionServidor(construirUrlWebSocket(window.location), {
   alAbrir() {
     store.fijarConexion('CONECTADO');
+    const credencial = cargarCredencial();
+    if (credencial !== null) {
+      store.actualizar({
+        reconectando: true,
+        nombreBorrador: credencial.nombre,
+        error: null,
+      });
+      conexion.enviar(mensajeUnirseDesdeCredencial(credencial));
+    }
   },
   alRecibir(mensaje: MensajeServidor) {
     manejarMensajeEntrante(mensaje);
@@ -56,11 +71,13 @@ const conexion = new ConexionServidor(construirUrlWebSocket(window.location), {
 });
 
 function limpiarBorradorEntrada(): void {
+  limpiarCredencial();
   store.actualizar({
     aliasElegido: null,
     nombreBorrador: '',
     descripcionBorrador: '',
     error: null,
+    reconectando: false,
   });
 }
 
@@ -69,11 +86,19 @@ function manejarMensajeEntrante(mensaje: MensajeServidor): void {
   if (esMensajeEstado(mensaje)) {
     store.recibirVista(mensaje.payload);
     if (mensaje.payload.perspectivaJugadorId === PERSPECTIVA_INVITADO) {
-      limpiarBorradorEntrada();
+      if (mensaje.payload.fase === 'LOBBY') {
+        limpiarBorradorEntrada();
+      }
+      return;
+    }
+    persistirDesdeVista(mensaje.payload);
+    if (participanteRegistrado(store.obtener())) {
+      store.actualizar({ reconectando: false });
     }
     return;
   }
   if (esMensajeError(mensaje)) {
+    store.actualizar({ reconectando: false });
     store.recibirError(mensaje.payload.mensaje);
     return;
   }
@@ -166,6 +191,21 @@ const accionesLobby: AccionesLobby = {
     }
     limpiarBorradorEntrada();
   },
+  reconectarConAlias(nombre: string) {
+    const alias = nombre.trim();
+    if (alias.length < NOMBRE_MIN || alias.length > NOMBRE_MAX) {
+      store.recibirError(
+        `El alias debe tener entre ${NOMBRE_MIN} y ${NOMBRE_MAX} caracteres.`,
+      );
+      return;
+    }
+    store.actualizar({
+      reconectando: true,
+      nombreBorrador: alias,
+      error: null,
+    });
+    conexion.enviar(mensajes.unirse(alias, 'JUGADOR'));
+  },
 };
 
 function aliasDisponible() {
@@ -241,12 +281,21 @@ function programarTickTemporizador(vista: EstadoCliente['vista']): void {
     temporizadorTick = null;
   }
   const finAt = vista?.golpeActual?.temporizadorFinAt;
-  if (finAt == null || finAt <= Date.now()) {
+  const terminaDesconexion = vista?.terminacionPorDesconexion?.terminaEn;
+  const hayTemporizador =
+    (finAt != null && finAt > Date.now()) ||
+    (terminaDesconexion != null && terminaDesconexion > Date.now());
+  if (!hayTemporizador) {
     return;
   }
   temporizadorTick = setInterval(() => {
-    const actual = store.obtener().vista?.golpeActual?.temporizadorFinAt;
-    if (actual == null || actual <= Date.now()) {
+    const actual = store.obtener().vista;
+    const finGolpe = actual?.golpeActual?.temporizadorFinAt;
+    const finDesconexion = actual?.terminacionPorDesconexion?.terminaEn;
+    const sigueActivo =
+      (finGolpe != null && finGolpe > Date.now()) ||
+      (finDesconexion != null && finDesconexion > Date.now());
+    if (!sigueActivo) {
       if (temporizadorTick !== null) {
         clearInterval(temporizadorTick);
         temporizadorTick = null;

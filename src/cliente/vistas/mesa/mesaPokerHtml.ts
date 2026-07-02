@@ -206,6 +206,19 @@ export function htmlToastResultado(vista: VistaPartida): string {
     : `<div class="mesa-poker__toast mesa-poker__toast--fracaso" role="status">¡Alarma! Golpe ${r.numero}</div>`;
 }
 
+export function htmlAvisoTerminacionDesconexion(vista: VistaPartida): string {
+  const pendiente = vista.terminacionPorDesconexion;
+  if (pendiente == null || vista.fase !== 'EN_CURSO') {
+    return '';
+  }
+  const segundos = Math.max(0, Math.ceil((pendiente.terminaEn - Date.now()) / 1000));
+  return `
+    <div class="mesa-poker__aviso-desconexion" role="alert" aria-live="polite">
+      <strong>${escapar(pendiente.jugadorNombre)} se desconectó.</strong>
+      <span>La partida terminará en <span class="mesa-poker__aviso-cuenta">${segundos}</span> s y volveréis al escondite.</span>
+    </div>`;
+}
+
 export function htmlAsientos(ctx: MesaPokerContexto): string {
   const { vista, golpe, esEspectador, tengoFichaActiva, esShowdown } = ctx;
   const showdownResuelto = esShowdown && showdownMesaCompleto(vista, golpe);
@@ -363,6 +376,7 @@ export function htmlMesaPoker(ctx: MesaPokerContexto): string {
       : '';
 
   let bannerResultado = htmlToastResultado(vista);
+  const avisoDesconexion = htmlAvisoTerminacionDesconexion(vista);
 
   return `
     <section class="mesa-poker${esEspectador ? ' mesa-poker--espectador' : ''}${showdownResuelto ? ' mesa-poker--showdown-resuelto' : ''}">
@@ -377,6 +391,7 @@ export function htmlMesaPoker(ctx: MesaPokerContexto): string {
         ${historialDrawerHtml(vista)}
         ${botonTerminar}
       </div>
+      ${avisoDesconexion}
       ${bannerResultado}
       <div class="mesa-poker__mesa">
         <div class="mesa-poker__backdrop" aria-hidden="true"></div>

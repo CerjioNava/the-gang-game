@@ -146,6 +146,16 @@ export interface SnapshotShowdownResuelto {
   fichas: EstadoFichas;
 }
 
+/** Ventana máxima de reconexión tras desconexión en partida (ms). */
+export const TERMINACION_DESCONEXION_MS = 10_000;
+
+/** Cuenta atrás visible cuando un ladrón se desconecta durante EN_CURSO. */
+export interface TerminacionPorDesconexion {
+  jugadorId: string;
+  jugadorNombre: string;
+  terminaEn: number;
+}
+
 /** Duración del temporizador de avance automático de ronda (ms). */
 export const TEMPORIZADOR_RONDA_MS = 10_000;
 
@@ -242,6 +252,8 @@ export interface EstadoPartida {
   ultimoResultadoGolpe?: ResultadoGolpeReciente | null;
   /** Showdown recién resuelto, visible hasta el siguiente movimiento de fichas. */
   ultimoShowdownResuelto?: SnapshotShowdownResuelto | null;
+  /** Cuenta atrás por desconexión de un ladrón, o null si no hay. */
+  terminacionPorDesconexion?: TerminacionPorDesconexion | null;
 }
 
 // ===========================================================================

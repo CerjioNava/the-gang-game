@@ -5,6 +5,7 @@ import type { AccionesMesa } from '../vistas/mesa';
 import {
   renderizarEntradaEspectador,
   renderizarLobby,
+  renderizarReconexion,
 } from '../vistas/lobby';
 import { renderizarMesa } from '../vistas/mesa';
 import {
@@ -104,6 +105,8 @@ export function renderizarFase(
           <h2>El golpe ha terminado</h2>
           <p class="lobby__intro">Esta Partida ya finalizó. No es posible unirse como espectador.</p>
         </section>`;
+    } else if (fase === 'EN_CURSO') {
+      renderizarReconexion(main, estado, acciones.lobby);
     } else {
       renderizarEntradaEspectador(main, estado, acciones.lobby);
     }

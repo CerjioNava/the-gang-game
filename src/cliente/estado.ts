@@ -37,6 +37,8 @@ export interface EstadoCliente {
   aliasElegido: AliasElegido | null;
   /** Modo de entrada usado al enviar UNIRSE (interno). */
   modoUnirse: 'JUGADOR' | 'ESPECTADOR';
+  /** True mientras se espera la vista tras auto-UNIRSE por reconexión. */
+  reconectando: boolean;
 }
 
 /** Función suscriptora que se invoca tras cada cambio de estado. */
@@ -55,6 +57,7 @@ export class StoreCliente {
     descripcionBorrador: '',
     aliasElegido: null,
     modoUnirse: 'JUGADOR',
+    reconectando: false,
   };
   readonly #suscriptores = new Set<Suscriptor>();
 

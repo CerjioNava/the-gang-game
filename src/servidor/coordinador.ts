@@ -41,7 +41,10 @@ import {
   abandonarEspectador,
   abandonarJugador,
   actualizarIdentidadJugador,
+  aplicarTerminacionPorDesconexionExpirada,
+  cancelarTerminacionPorDesconexion,
   generarNombreEspectador,
+  iniciarTerminacionPorDesconexion,
   registrarEspectador,
   registrarJugador,
   validarInicioConConectividad,
@@ -230,6 +233,38 @@ export class Coordinador {
   /** Avance automático de ronda (temporizador expirado). */
   avanzarAutomatico(): ResultadoCoordinador {
     return this.#aplicar({ tipo: 'AVANZAR_AUTOMATICO' });
+  }
+
+  /** Inicia o reinicia la cuenta atrás por desconexión de un ladrón. */
+  registrarDesconexionJugador(jugadorId: string, ahoraMs: number = Date.now()): ResultadoCoordinador {
+    if (this.#estado.fase !== 'EN_CURSO') {
+      return { clase: 'DIFUNDIR', eventos: [] };
+    }
+    if (!this.#estado.jugadores.some((j) => j.id === jugadorId)) {
+      return { clase: 'DIFUNDIR', eventos: [] };
+    }
+    this.#estado = iniciarTerminacionPorDesconexion(this.#estado, jugadorId, ahoraMs);
+    return { clase: 'DIFUNDIR', eventos: [] };
+  }
+
+  /** Cancela la terminación pendiente (p. ej. reconexión a tiempo). */
+  cancelarTerminacionPorDesconexion(): ResultadoCoordinador {
+    if (this.#estado.terminacionPorDesconexion == null) {
+      return { clase: 'DIFUNDIR', eventos: [] };
+    }
+    this.#estado = cancelarTerminacionPorDesconexion(this.#estado);
+    return { clase: 'DIFUNDIR', eventos: [] };
+  }
+
+  /** Ejecuta volver al lobby si expiró la cuenta atrás por desconexión. */
+  ejecutarTerminacionPorDesconexionExpirada(ahoraMs: number = Date.now()): ResultadoCoordinador {
+    const siguiente = aplicarTerminacionPorDesconexionExpirada(this.#estado, ahoraMs);
+    if (siguiente === this.#estado) {
+      return { clase: 'DIFUNDIR', eventos: [] };
+    }
+    this.#temporizadorFinAt = null;
+    this.#estado = siguiente;
+    return { clase: 'DIFUNDIR', eventos: [] };
   }
 
   /** Construye el estado inicial en fase LOBBY, sin Jugadores ni Golpe. */
@@ -734,6 +769,11 @@ export class Coordinador {
     this.#temporizadorFinAt = null;
     this.#estado = volverAlLobby(this.#estado);
     return { clase: 'DIFUNDIR', eventos: [] };
+  }
+
+  /** Indica si hay una terminación pendiente activa. */
+  tieneTerminacionPorDesconexionPendiente(): boolean {
+    return this.#estado.terminacionPorDesconexion != null;
   }
 
   // -------------------------------------------------------------------------
