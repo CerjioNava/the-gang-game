@@ -123,9 +123,6 @@ const accionesLobby: AccionesLobby = {
   expulsarMiembro(jugadorId: string) {
     conexion.enviar(mensajes.expulsarMiembro(jugadorId));
   },
-  configurarAjustes(ajustes: { sinKickers: boolean }) {
-    conexion.enviar(mensajes.configurarAjustes(ajustes));
-  },
 };
 
 function enviarUnirse(modo: 'JUGADOR' | 'ESPECTADOR'): boolean {

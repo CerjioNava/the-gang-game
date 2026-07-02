@@ -1,44 +1,45 @@
 import type { JugadorVisible } from '../../protocolo';
 
-/** Coordenadas en porcentaje del área de mesa (x, y); asientos en el margen exterior al fieltro. */
+/** Zona del asiento en la mesa. */
+export type ZonaAsiento = 'local' | 'rival';
+
+/** Coordenadas en porcentaje del área de mesa (x, y). */
 export interface PosicionAsiento {
   jugador: JugadorVisible;
   x: number;
   y: number;
   esYo: boolean;
+  zona: ZonaAsiento;
 }
 
-/** Slots alrededor de la mesa; el índice 0 es siempre el asiento inferior (local). */
-const COORDS: readonly (readonly [number, number])[] = [
-  [50, 92],
-  [5, 50],
-  [18, 9],
-  [50, 6],
-  [82, 9],
-  [95, 50],
-];
+/** Reparte rivales en un arco superior (referencia para orden y metadatos). */
+function distribuirRivalesEnArco(cantidad: number): readonly { x: number; y: number }[] {
+  if (cantidad === 0) {
+    return [];
+  }
 
-const LAYOUT_POR_CANTIDAD: Record<number, readonly number[]> = {
-  3: [0, 2, 4],
-  4: [0, 1, 3, 5],
-  5: [0, 1, 2, 4, 5],
-  6: [0, 1, 2, 3, 4, 5],
-};
+  const margenX = 22;
+  const anchoUtil = 100 - margenX * 2;
+
+  return Array.from({ length: cantidad }, (_, indice) => {
+    const t = cantidad === 1 ? 0.5 : indice / (cantidad - 1);
+    const x = margenX + t * anchoUtil;
+    const distanciaAlCentro = Math.abs(t - 0.5) * 2;
+    const y = 8 + distanciaAlCentro * 3;
+    return { x, y };
+  });
+}
 
 /**
- * Asigna posiciones alrededor de la mesa rotando la lista para que el jugador
- * local quede abajo-centro.
+ * Asigna posiciones: el jugador local abajo-centro; el resto en fila superior
+ * con espaciado dinámico sobre el arco de la mesa. En modo espectador, todos
+ * van en la fila superior.
  */
 export function calcularPosicionesAsientos(
   jugadores: readonly JugadorVisible[],
   perspectivaId: string | null,
 ): PosicionAsiento[] {
   if (jugadores.length === 0) {
-    return [];
-  }
-
-  const layout = LAYOUT_POR_CANTIDAD[jugadores.length];
-  if (layout === undefined) {
     return [];
   }
 
@@ -50,14 +51,55 @@ export function calcularPosicionesAsientos(
     }
   }
 
-  return orden.map((jugador, i) => {
-    const slot = layout[i] ?? 0;
-    const [x, y] = COORDS[slot] ?? [50, 50];
-    return {
+  const posiciones: PosicionAsiento[] = [];
+
+  if (perspectivaId !== null && orden.length > 0) {
+    const local = orden[0]!;
+    posiciones.push({
+      jugador: local,
+      x: 50,
+      y: 90,
+      esYo: true,
+      zona: 'local',
+    });
+
+    const rivales = orden.slice(1);
+    const coords = distribuirRivalesEnArco(rivales.length);
+    rivales.forEach((jugador, indice) => {
+      const coord = coords[indice] ?? { x: 50, y: 8 };
+      posiciones.push({
+        jugador,
+        x: coord.x,
+        y: coord.y,
+        esYo: false,
+        zona: 'rival',
+      });
+    });
+    return posiciones;
+  }
+
+  const coords = distribuirRivalesEnArco(orden.length);
+  orden.forEach((jugador, indice) => {
+    const coord = coords[indice] ?? { x: 50, y: 8 };
+    posiciones.push({
       jugador,
-      x,
-      y,
-      esYo: perspectivaId !== null && jugador.id === perspectivaId,
-    };
+      x: coord.x,
+      y: coord.y,
+      esYo: false,
+      zona: 'rival',
+    });
   });
+
+  return posiciones;
+}
+
+/** Cuenta rivales (asientos superiores) para espaciado dinámico en CSS. */
+export function contarRivales(
+  jugadores: readonly JugadorVisible[],
+  perspectivaId: string | null,
+): number {
+  if (perspectivaId === null) {
+    return jugadores.length;
+  }
+  return Math.max(0, jugadores.length - 1);
 }

@@ -127,7 +127,7 @@ export type Accion =
  *
  * @param jugadores Jugadores registrados (entre 3 y 6).
  * @param semilla Semilla para el barajado determinista y reproducible.
- * @param ajustes Ajustes opcionales del modo de juego (por defecto sinKickers=false).
+ * @param ajustes Ajustes opcionales del modo de juego (por defecto sinKickers=true).
  * @returns Estado inicial de la Partida en curso.
  * @throws {RangeError} Si el número de Jugadores está fuera del rango 3..6.
  * _Requirements: 3.1, 3.2, 4.1_

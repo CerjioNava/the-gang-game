@@ -202,14 +202,16 @@ function copiarBolsillo(bolsillo: [Carta, Carta]): [Carta, Carta] {
 /**
  * Proyecta un Jugador a su forma visible desde la perspectiva de `jugadorId`.
  *
- * El propio Jugador siempre ve sus Cartas de Bolsillo. Las de los demás se
- * revelan cuando su id está en el conjunto de bolsillos ya revelados en el
- * Showdown progresivo; en caso contrario se sustituyen por {@link BOLSILLO_OCULTO}.
+ * El propio Jugador siempre ve sus Cartas de Bolsillo. Los espectadores ven
+ * todas las manos en todo momento. Las de los demás jugadores se revelan cuando
+ * su id está en el conjunto de bolsillos ya revelados en el Showdown progresivo;
+ * en caso contrario se sustituyen por {@link BOLSILLO_OCULTO}.
  */
 function proyectarJugador(
   jugador: Jugador,
   perspectivaJugadorId: string,
   idsRevelados: ReadonlySet<string>,
+  esEspectador: boolean,
 ): JugadorVisible {
   const esPropio = jugador.id === perspectivaJugadorId;
   let bolsillo: BolsilloVisible;
@@ -217,7 +219,7 @@ function proyectarJugador(
   if (jugador.bolsillo === null) {
     // Aún no se han repartido cartas: no hay nada que ocultar ni revelar.
     bolsillo = null;
-  } else if (esPropio || idsRevelados.has(jugador.id)) {
+  } else if (esEspectador || esPropio || idsRevelados.has(jugador.id)) {
     bolsillo = copiarBolsillo(jugador.bolsillo);
   } else {
     bolsillo = BOLSILLO_OCULTO;
@@ -295,7 +297,7 @@ export function proyectarEstadoPara(
   const esEspectador = listaEspectadores.some((e) => e.id === jugadorId);
 
   const jugadores = estado.jugadores.map((jugador) =>
-    proyectarJugador(jugador, jugadorId, idsRevelados),
+    proyectarJugador(jugador, jugadorId, idsRevelados, esEspectador),
   );
 
   const espectadores: EspectadorVisible[] = listaEspectadores.map((e) => ({
@@ -405,9 +407,10 @@ export function solicitarCartasDe(
   objetivoId: string,
 ): ResultadoSolicitudCartas {
   const esPropio = solicitanteId === objetivoId;
+  const esEspectador = (estado.espectadores ?? []).some((e) => e.id === solicitanteId);
   const idsRevelados = idsBolsillosRevelados(estado);
 
-  if (!esPropio && !idsRevelados.has(objetivoId)) {
+  if (!esPropio && !esEspectador && !idsRevelados.has(objetivoId)) {
     return {
       ok: false,
       error: {

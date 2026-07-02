@@ -1,3 +1,6 @@
+import type { Ficha } from '../../../dominio/modelos';
+import type { MovimientoFicha, UbicacionFicha } from './mesaFichasDiff';
+
 /** Indica si el usuario prefiere menos animación. */
 export function animacionesReducidas(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -70,11 +73,20 @@ export function animarEntradaMesa(mesa: HTMLElement): void {
       { duration: 340, easing: 'ease-out' },
     );
   }
-  mesa.querySelectorAll<HTMLElement>('.asiento').forEach((asiento, indice) => {
+  mesa.querySelectorAll<HTMLElement>('.asiento--local').forEach((asiento, indice) => {
     asiento.animate(
       [
         { opacity: 0, transform: 'translate(-50%, calc(-50% + 8px))' },
         { opacity: 1, transform: 'translate(-50%, -50%)' },
+      ],
+      { duration: 280, delay: indice * 40, easing: 'ease-out' },
+    );
+  });
+  mesa.querySelectorAll<HTMLElement>('.mesa-poker__rivales .asiento').forEach((asiento, indice) => {
+    asiento.animate(
+      [
+        { opacity: 0, transform: 'translateY(8px)' },
+        { opacity: 1, transform: 'translateY(0)' },
       ],
       { duration: 280, delay: indice * 40, easing: 'ease-out' },
     );
@@ -100,4 +112,103 @@ export function animarVolteoShowdown(mesa: ParentNode, jugadorId: string): void 
       );
     }
   });
+}
+
+function selectorFicha(ficha: Ficha): string {
+  return `[data-animate-key="f-${ficha.color}-${ficha.estrellas}"]`;
+}
+
+/** Localiza un elemento de ficha en la mesa según su ubicación. */
+export function elementoFichaEnUbicacion(
+  mesa: ParentNode,
+  ubicacion: UbicacionFicha,
+  ficha: Ficha,
+): HTMLElement | null {
+  const sel = selectorFicha(ficha);
+  if (ubicacion === 'centro') {
+    return mesa.querySelector<HTMLElement>(`.mesa-poker__pool ${sel}`);
+  }
+  return mesa.querySelector<HTMLElement>(
+    `.asiento[data-jugador-id="${ubicacion.jugadorId}"] .asiento__ranuras-fichas ${sel}`,
+  );
+}
+
+/** Anima una ficha volando de un rectángulo origen a uno destino. */
+export async function animarMovimientoFicha(
+  origen: DOMRect,
+  destino: DOMRect,
+  ficha: Ficha,
+): Promise<void> {
+  if (animacionesReducidas()) {
+    return;
+  }
+
+  const ghost = document.createElement('span');
+  ghost.className = `ficha-ghost ficha ficha--${ficha.color.toLowerCase()}`;
+  ghost.textContent = String(ficha.estrellas);
+  const tamOrig = Math.max(origen.width, origen.height, 36);
+  const tamDest = Math.max(destino.width, destino.height, 36);
+  ghost.style.width = `${tamOrig}px`;
+  ghost.style.height = `${tamOrig}px`;
+  ghost.style.left = `${origen.left + origen.width / 2 - tamOrig / 2}px`;
+  ghost.style.top = `${origen.top + origen.height / 2 - tamOrig / 2}px`;
+  document.body.appendChild(ghost);
+
+  const cxO = origen.left + origen.width / 2;
+  const cyO = origen.top + origen.height / 2;
+  const cxD = destino.left + destino.width / 2;
+  const cyD = destino.top + destino.height / 2;
+  const dx = cxD - cxO;
+  const dy = cyD - cyO;
+  const escala = tamDest / tamOrig;
+
+  try {
+    await ghost.animate(
+      [
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${escala})`, opacity: 1 },
+      ],
+      { duration: 420, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' },
+    ).finished;
+  } finally {
+    ghost.remove();
+  }
+}
+
+/** Anima todos los movimientos de fichas detectados tras un parche de mesa. */
+export async function animarMovimientosFichas(
+  mesa: ParentNode,
+  movimientos: readonly MovimientoFicha[],
+  rectsOrigen: ReadonlyMap<string, DOMRect>,
+): Promise<void> {
+  if (animacionesReducidas() || movimientos.length === 0) {
+    return;
+  }
+
+  const ocultos: HTMLElement[] = [];
+
+  for (const mov of movimientos) {
+    const destEl = elementoFichaEnUbicacion(mesa, mov.destino, mov.ficha);
+    if (destEl !== null) {
+      destEl.style.opacity = '0';
+      ocultos.push(destEl);
+    }
+  }
+
+  await Promise.all(
+    movimientos.map(async (mov) => {
+      const clave = `f-${mov.ficha.color}-${mov.ficha.estrellas}`;
+      const origRect = rectsOrigen.get(clave);
+      const destEl = elementoFichaEnUbicacion(mesa, mov.destino, mov.ficha);
+      if (origRect === undefined || destEl === null) {
+        return;
+      }
+      const destRect = destEl.getBoundingClientRect();
+      await animarMovimientoFicha(origRect, destRect, mov.ficha);
+    }),
+  );
+
+  for (const el of ocultos) {
+    el.style.opacity = '';
+  }
 }

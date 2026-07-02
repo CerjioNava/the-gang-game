@@ -25,6 +25,7 @@ import type { Carta, Ficha, VistaPartida } from '../src/cliente/protocolo';
 import { BOLSILLO_OCULTO } from '../src/dominio/proyeccion';
 import { CategoriaMano } from '../src/dominio/modelos';
 import { renderizarMesa, type AccionesMesa } from '../src/cliente/vistas/mesa';
+import { renderizarLobby, type AccionesLobby } from '../src/cliente/vistas/lobby';
 import {
   CATEGORIAS_RANKING,
   NOMBRE_CATEGORIA,
@@ -299,9 +300,73 @@ describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
     expect(html).toMatch(/Golpe/);
     expect(html).toMatch(/Bóveda/); // "Bóvedas doradas"
     expect(html).toMatch(/Alarma/); // "Alarmas rojas"
-    expect(html).toMatch(/Ficha/); // "Fichas ... disponibles"
-    expect(html).toMatch(/Cartas Comunitarias/);
+    expect(html).toMatch(/Ficha/); // botones de intercambio en asientos
     expect(html).toMatch(/Cartas de Bolsillo/);
+  });
+
+  it('usa layout de mesa con comunitarias centradas, pool bajo comunitarias y rivales arriba', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
+
+    expect(contenedor.querySelector('.mesa-poker__pool-centro')).not.toBeNull();
+    expect(contenedor.querySelector('.mesa-poker__pool-lateral')).toBeNull();
+    expect(contenedor.querySelector('.mesa-poker__centro-etiq')).toBeNull();
+    expect(contenedor.querySelector('.carta--mesa')).not.toBeNull();
+    expect(contenedor.querySelector('.mesa-poker__rivales')).not.toBeNull();
+    expect(contenedor.querySelector('.mesa-poker__local .asiento--local')).not.toBeNull();
+    expect(contenedor.querySelectorAll('.mesa-poker__rivales .asiento--rival').length).toBe(3);
+  });
+
+  it('renderiza dorsos con imagen SVG BACK-1', () => {
+    const contenedor = nuevoContenedor();
+    const vista: VistaPartida = {
+      ...vistaEnCurso(),
+      jugadores: [
+        { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(14, 'PICAS'), carta(13, 'PICAS')], conectado: true },
+        { id: 'j2', nombre: 'La Sombra', bolsillo: BOLSILLO_OCULTO, conectado: true },
+        { id: 'j3', nombre: 'El Manos', bolsillo: BOLSILLO_OCULTO, conectado: true },
+        { id: 'j4', nombre: 'El Topo', bolsillo: BOLSILLO_OCULTO, conectado: true },
+      ],
+    };
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+
+    const dorsos = contenedor.querySelectorAll('.carta--dorso .carta__svg--dorso');
+    expect(dorsos.length).toBeGreaterThan(0);
+    for (const dorso of dorsos) {
+      expect((dorso as HTMLImageElement).src.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('en modo espectador muestra las cartas visibles de todos los jugadores', () => {
+    const contenedor = nuevoContenedor();
+    const vista: VistaPartida = {
+      ...vistaEnCurso(),
+      perspectivaJugadorId: 'obs1',
+      esEspectador: true,
+      espectadores: [{ id: 'obs1', nombre: 'Observador', conectado: true }],
+      jugadores: [
+        { id: 'j1', nombre: 'El Cerebro', bolsillo: [carta(14, 'PICAS'), carta(13, 'PICAS')], conectado: true },
+        { id: 'j2', nombre: 'La Sombra', bolsillo: [carta(4, 'CORAZONES'), carta(5, 'CORAZONES')], conectado: true },
+        { id: 'j3', nombre: 'El Manos', bolsillo: [carta(6, 'DIAMANTES'), carta(7, 'DIAMANTES')], conectado: true },
+        { id: 'j4', nombre: 'El Topo', bolsillo: [carta(8, 'TREBOLES'), carta(9, 'TREBOLES')], conectado: true },
+      ],
+    };
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+
+    expect(contenedor.querySelector('.mesa-poker--espectador')).not.toBeNull();
+    expect(contenedor.querySelectorAll('.asiento__cartas .carta__svg').length).toBe(8);
+    expect(contenedor.querySelectorAll('.carta--dorso').length).toBe(0);
+  });
+
+  it('muestra 4 ranuras de ficha bajo cada asiento durante las rondas', () => {
+    const contenedor = nuevoContenedor();
+    renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
+
+    expect(contenedor.querySelectorAll('.asiento__ranuras-fichas').length).toBe(4);
+    expect(contenedor.querySelectorAll('.ficha-ranura').length).toBe(16);
+    expect(contenedor.querySelectorAll('.ficha-ranura--llena').length).toBe(4);
+    expect(contenedor.querySelectorAll('.ficha-ranura--vacia').length).toBe(12);
+    expect(contenedor.querySelector('.ficha-ranura--activa.ficha-ranura--amarillo')).not.toBeNull();
   });
 
   it('muestra fichas del pool como círculos numerados sin texto TOMAR', () => {
@@ -424,5 +489,87 @@ describe('Ranking_de_Manos en orden (11.3)', () => {
     montarRanking();
     montarRanking();
     expect(document.querySelectorAll('#ranking-boton')).toHaveLength(1);
+  });
+});
+
+const ACCIONES_LOBBY_INERTES: AccionesLobby = {
+  sacarAliasAlAzar() {},
+  activarAliasManual() {},
+  cambiarNombre() {},
+  cambiarDescripcion() {},
+  unirseComoJugador() {},
+  unirseComoEspectador() {},
+  iniciar() {},
+  expulsarMiembro() {},
+};
+
+describe('Vista de lobby: iniciar partida', () => {
+  function vistaLobby(perspectivaId: string, anfitrionId: string): VistaPartida {
+    return {
+      fase: 'LOBBY',
+      perspectivaJugadorId: perspectivaId,
+      anfitrionId,
+      jugadores: [
+        { id: 'j1', nombre: 'El Cerebro', conectado: true },
+        { id: 'j2', nombre: 'La Sombra', conectado: true },
+        { id: 'j3', nombre: 'El Manos', conectado: true },
+      ],
+      espectadores: [],
+      esEspectador: false,
+      golpeActual: null,
+      golpesJugados: 0,
+      bovedasDoradas: 0,
+      alarmasRojas: 0,
+      resultado: null,
+      historialGolpes: [],
+      ultimoResultadoGolpe: null,
+      ultimoShowdownResuelto: null,
+      ajustes: { sinKickers: true },
+    };
+  }
+
+  it('permite a un jugador no anfitrión dar el golpe cuando hay aforo válido', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: vistaLobby('j2', 'j1'),
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    const boton = contenedor.querySelector<HTMLButtonElement>('#boton-iniciar');
+    expect(boton?.disabled).toBe(false);
+    expect(contenedor.textContent).not.toContain('Solo el anfitrión puede dar el golpe');
+    contenedor.remove();
+  });
+
+  it('no muestra ajustes del golpe en el lobby', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: vistaLobby('j3', 'j1'),
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.textContent).not.toContain('Ajustes del Golpe');
+    expect(contenedor.querySelector('#check-sin-kickers')).toBeNull();
+    contenedor.remove();
   });
 });

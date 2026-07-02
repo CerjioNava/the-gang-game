@@ -3,12 +3,16 @@ import type { VistaPartida } from '../../protocolo';
 import type { VistaGolpe } from '../../../dominio/proyeccion';
 import { BOLSILLO_OCULTO } from '../../../dominio/proyeccion';
 import type { AccionesMesa } from './tipos';
+import type { EstadoFichas } from '../../../dominio/modelos';
 import {
   animarEntradaMesa,
+  animarMovimientosFichas,
   animarNovedades,
   animarPulso,
   animarVolteoShowdown,
+  elementoFichaEnUbicacion,
 } from './mesaAnimaciones';
+import { detectarMovimientosFichas } from './mesaFichasDiff';
 import {
   htmlAccionesMesa,
   htmlAsientos,
@@ -30,6 +34,7 @@ interface MesaSnapshot {
   alarmas: number;
   pool: string;
   asientos: string;
+  fichas: EstadoFichas;
   overlay: string;
   reveladoShowdown: number;
   clavesCartas: Set<string>;
@@ -158,6 +163,18 @@ function aplicarParches(
     mesa.insertAdjacentHTML('afterbegin', toastHtml);
   }
 
+  let movimientosFichas: ReturnType<typeof detectarMovimientosFichas> = [];
+  const rectsOrigen = new Map<string, DOMRect>();
+  if (prev !== null && prev.fichas !== undefined) {
+    movimientosFichas = detectarMovimientosFichas(prev.fichas, golpe.fichas);
+    for (const mov of movimientosFichas) {
+      const origEl = elementoFichaEnUbicacion(mesa, mov.origen, mov.ficha);
+      if (origEl !== null) {
+        rectsOrigen.set(`f-${mov.ficha.color}-${mov.ficha.estrellas}`, origEl.getBoundingClientRect());
+      }
+    }
+  }
+
   const centro = mesa.querySelector('.mesa-poker__centro');
   if (centro !== null) {
     const comunitariasPrev = centro.querySelector('.mesa-poker__centro-comunitarias');
@@ -168,9 +185,11 @@ function aplicarParches(
       centro.insertAdjacentHTML('afterbegin', comHtml);
     }
 
-    const poolPrev = centro.querySelector('.mesa-poker__centro-pool');
+    const poolPrev = centro.querySelector('.mesa-poker__pool-centro');
     const poolHtml = htmlPoolCentro(ctx);
-    if (poolPrev !== null) {
+    if (poolHtml === '') {
+      poolPrev?.remove();
+    } else if (poolPrev !== null) {
       poolPrev.outerHTML = poolHtml;
     } else {
       centro.insertAdjacentHTML('beforeend', poolHtml);
@@ -211,11 +230,26 @@ function aplicarParches(
     '.mesa-poker__comunitarias [data-animate-key]',
     prev?.clavesCartas ?? new Set(),
   );
-  const clavesFichas = animarNovedades(
-    mesa,
-    '.mesa-poker__pool [data-animate-key]',
-    prev?.clavesFichas ?? new Set(),
-  );
+  let clavesFichas: Set<string>;
+  if (movimientosFichas.length > 0) {
+    clavesFichas = new Set<string>();
+    mesa.querySelectorAll<HTMLElement>('.mesa-poker__pool [data-animate-key]').forEach((nodo) => {
+      const clave = nodo.dataset['animateKey'];
+      if (clave !== undefined && clave.length > 0) {
+        clavesFichas.add(clave);
+      }
+    });
+  } else {
+    clavesFichas = animarNovedades(
+      mesa,
+      '.mesa-poker__pool [data-animate-key]',
+      prev?.clavesFichas ?? new Set(),
+    );
+  }
+
+  if (movimientosFichas.length > 0) {
+    void animarMovimientosFichas(mesa, movimientosFichas, rectsOrigen);
+  }
 
   if (!ctx.esEspectador) {
     enlazarEventosMesa(contenedor, acciones);
@@ -228,6 +262,7 @@ function aplicarParches(
     alarmas: vista.alarmasRojas,
     pool: clavePool(golpe),
     asientos: claveAsientos(vista, golpe),
+    fichas: golpe.fichas,
     overlay: claveOverlay(ctx.esShowdown),
     reveladoShowdown: golpe.reveladoShowdown,
     clavesCartas,

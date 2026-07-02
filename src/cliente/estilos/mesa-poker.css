@@ -124,29 +124,28 @@
   margin: 0 0.75rem 0.5rem;
   overflow: visible;
   isolation: isolate;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 50%, #050505 100%);
+  border-radius: 12px;
+}
+
+.mesa-poker__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 85% 70% at 50% 45%, rgba(20, 82, 47, 0.08) 0%, transparent 65%),
+    linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 50%, #050505 100%);
 }
 
 .mesa-poker__felt {
   position: absolute;
-  top: var(--felt-top);
-  left: var(--felt-x);
-  right: var(--felt-x);
-  bottom: var(--felt-bottom);
-  border-radius: 50% / 42%;
-  background:
-    radial-gradient(ellipse 80% 70% at 50% 45%, #1a5c38 0%, #0f3d24 55%, #0a2818 100%),
-    repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.015) 0,
-      rgba(255, 255, 255, 0.015) 2px,
-      transparent 2px,
-      transparent 6px
-    );
-  box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.45),
-    0 0 0 8px #3d2817,
-    0 0 0 12px #2a1a0e,
-    0 12px 28px rgba(0, 0, 0, 0.35);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
   overflow: visible;
   z-index: 1;
   pointer-events: none;
@@ -155,30 +154,77 @@
 .mesa-poker__centro {
   position: absolute;
   inset: var(--felt-top) var(--felt-x) var(--felt-bottom);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr auto auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
+  justify-items: center;
   z-index: 3;
   max-width: none;
   pointer-events: none;
+  overflow: visible;
 }
 
 .mesa-poker__centro > * {
   pointer-events: auto;
-  max-width: 90%;
 }
 
-.mesa-poker__centro-etiq {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
+.mesa-poker__centro-comunitarias {
+  grid-row: 2;
+  overflow: visible;
+}
+
+.mesa-poker__pool-centro {
+  grid-row: 3;
+  margin-top: 0.45rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.mesa-poker__pool-centro .mesa-poker__pool {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mesa-poker__pool-centro .ficha-boton {
+  width: 2.55rem;
+  height: 2.55rem;
+  min-width: 2.55rem;
+  min-height: 2.55rem;
+}
+
+.mesa-poker__pool-centro .ficha-boton__valor {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .mesa-poker__comunitarias {
   justify-content: center;
+  overflow: visible;
+}
+
+.mesa-poker__comunitarias [data-animate-key] {
+  display: inline-flex;
+  overflow: visible;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .mesa-poker__comunitarias .carta,
+  .asiento__cartas .carta,
+  .asiento__cartas .carta-volteo {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transform-origin: center bottom;
+  }
+
+  .mesa-poker__comunitarias .carta:hover,
+  .asiento__cartas .carta:hover,
+  .asiento__cartas .carta-volteo:hover {
+    transform: scale(1.5);
+    z-index: 10;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
 }
 
 .carta--placeholder {
@@ -187,40 +233,63 @@
   box-shadow: none;
 }
 
-.mesa-poker__centro-pool {
-  text-align: center;
-}
-
-.mesa-poker__pool {
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.mesa-poker__pool .ficha-boton {
-  width: 2.85rem;
-  height: 2.85rem;
-  min-width: 2.85rem;
-  min-height: 2.85rem;
-}
-
-.mesa-poker__pool .ficha-boton__valor {
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.mesa-poker__pool-vacio {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
-}
-
 .mesa-poker__asientos {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 5;
   overflow: visible;
+}
+
+.mesa-poker__rivales,
+.mesa-poker__local {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mesa-poker__local {
+  inset: 0;
+  z-index: 5;
+}
+
+.mesa-poker__rivales {
+  left: calc(var(--felt-x) + 4%);
+  right: calc(var(--felt-x) + 4%);
+  top: var(--felt-top);
+  transform: translateY(-78%);
+  z-index: 5;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: clamp(0.35rem, 1.1vw, 0.75rem);
+}
+
+.mesa-poker__rivales .asiento {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+  width: auto;
+}
+
+.mesa-poker__rivales .asiento--rival {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  gap: 0.18rem;
+  transform: none;
+}
+
+.mesa-poker__rivales .asiento--rival:hover {
+  box-shadow: none;
 }
 
 .asiento {
@@ -243,6 +312,19 @@
   z-index: 1;
 }
 
+.asiento--rival {
+  font-size: 0.74rem;
+}
+
+.mesa-poker__rivales .asiento--rival {
+  transform: none;
+}
+
+.asiento--local {
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
 .asiento:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
@@ -253,12 +335,53 @@
   box-shadow:
     0 0 20px rgba(217, 165, 33, 0.15),
     0 8px 22px rgba(0, 0, 0, 0.5);
-  z-index: 2;
+  z-index: 3;
+}
+
+.asiento--rival .asiento__nombre {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.asiento--rival .asiento__nombre .alias-tooltip {
+  max-width: 100%;
+}
+
+.asiento--rival .asiento__nombre .alias-tooltip__texto {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.mesa-poker .alias-tooltip__burbuja {
+  z-index: 30;
 }
 
 .mesa-poker__comunitarias [data-animate-key],
 .mesa-poker__pool [data-animate-key] {
   display: inline-flex;
+}
+
+.mesa-poker__pool {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mesa-poker__pool [data-animate-key] {
+  display: inline-flex;
+}
+
+.asiento--rival .asiento__cabecera {
+  font-size: 0.68rem;
+}
+
+.asiento--rival .asiento__intercambio {
+  font-size: 0.6rem;
+  padding: 0.18rem 0.35rem;
 }
 
 .asiento__cabecera {
@@ -297,13 +420,73 @@
   gap: 0.2rem;
   justify-content: center;
   flex-wrap: wrap;
+  overflow: visible;
 }
 
-.asiento__fichas {
+.asiento__ranuras-fichas {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
   justify-content: center;
+  align-items: center;
+  margin-top: 0.1rem;
+}
+
+.ficha-ranura {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-shrink: 0;
+}
+
+.ficha-ranura--vacia {
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.ficha-ranura--vacia.ficha-ranura--blanco {
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+.ficha-ranura--vacia.ficha-ranura--amarillo {
+  border-color: rgba(255, 214, 74, 0.45);
+}
+
+.ficha-ranura--vacia.ficha-ranura--naranja {
+  border-color: rgba(255, 149, 74, 0.48);
+}
+
+.ficha-ranura--vacia.ficha-ranura--rojo {
+  border-color: rgba(232, 93, 93, 0.48);
+}
+
+.ficha-ranura--activa {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.ficha-ranura--llena .ficha {
+  width: 1.55rem;
+  height: 1.55rem;
+  font-size: 0.72rem;
+}
+
+.asiento--rival .asiento__ranuras-fichas {
+  gap: 0.18rem;
+}
+
+.asiento--rival .ficha-ranura {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.asiento--rival .ficha-ranura--llena .ficha {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.65rem;
 }
 
 .asiento__intercambio {

@@ -9,7 +9,8 @@ import {
 } from '../../dominio';
 import type { EstadoGolpe, Jugador } from '../../dominio/modelos';
 import { BOLSILLO_OCULTO, type VistaGolpe, type VistaShowdownResuelto } from '../../dominio/proyeccion';
-import type { Carta, JugadorVisible, Palo, VistaPartida } from '../protocolo';
+import type { JugadorVisible, VistaPartida } from '../protocolo';
+import { cartaHtml } from './cartasHtml';
 import { fichaInsigniaHtml } from './atoms/fichaHtml';
 import { estatusJugadorHtml } from './estatusJugador';
 import { NOMBRE_CATEGORIA } from './ranking';
@@ -21,41 +22,6 @@ function escapar(texto: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-const SIMBOLO_PALO: Record<Palo, string> = {
-  PICAS: '♠',
-  CORAZONES: '♥',
-  DIAMANTES: '♦',
-  TREBOLES: '♣',
-};
-
-function paloEsRojo(palo: Palo): boolean {
-  return palo === 'CORAZONES' || palo === 'DIAMANTES';
-}
-
-function etiquetaValor(valor: number): string {
-  switch (valor) {
-    case 14:
-      return 'A';
-    case 13:
-      return 'K';
-    case 12:
-      return 'Q';
-    case 11:
-      return 'J';
-    default:
-      return String(valor);
-  }
-}
-
-function cartaHtml(carta: Carta): string {
-  const clase = paloEsRojo(carta.palo) ? 'carta carta--roja' : 'carta carta--negra';
-  return `
-    <div class="${clase}">
-      <span class="carta__valor">${etiquetaValor(carta.valor)}</span>
-      <span class="carta__palo">${SIMBOLO_PALO[carta.palo]}</span>
-    </div>`;
 }
 
 interface PosicionShowdown {
@@ -283,7 +249,7 @@ function filaShowdownHtml(posicion: PosicionShowdown, golpe: VistaGolpe): string
     cartas = '<p class="mesa__sin-cartas">Sin Cartas de Bolsillo.</p>';
   } else {
     cartas = `<div class="cartas-fila cartas-fila--mini">${jugador.bolsillo
-      .map(cartaHtml)
+      .map((c) => cartaHtml(c, 'mini'))
       .join('')}</div>`;
   }
 

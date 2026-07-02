@@ -10,15 +10,16 @@ import {
 import {
   fichaBotonHtml,
   fichaInsigniaHtml,
-  fichasSoloLecturaHtml,
   indicadorColorFichaHtml,
-  NOMBRE_COLOR_FICHA,
+  ranurasFichasJugadorHtml,
 } from '../atoms/fichaHtml';
 import { htmlAccionesShowdown, htmlCategoriaAsientoShowdown } from '../showdown';
+import { urlMesa } from '../cartasSvg';
 import { estatusJugadorHtml } from '../estatusJugador';
 import { nombreConTooltipHtml } from '../tooltipNombre';
 import {
   calcularPosicionesAsientos,
+  contarRivales,
   type PosicionAsiento,
 } from './posicionesAsientos';
 
@@ -107,16 +108,15 @@ function centroComunitariasHtml(golpe: VistaGolpe): string {
   for (let i = 0; i < slots; i += 1) {
     const c = reveladas[i];
     if (c !== undefined) {
-      cartasHtml += `<span data-animate-key="c-${c.valor}-${c.palo}">${cartaHtml(c, 'mini')}</span>`;
+      cartasHtml += `<span data-animate-key="c-${c.valor}-${c.palo}">${cartaHtml(c, 'mesa')}</span>`;
     } else {
       cartasHtml +=
-        '<div class="carta carta--placeholder carta--mini" aria-hidden="true"></div>';
+        '<div class="carta carta--placeholder carta--mesa" aria-hidden="true"></div>';
     }
   }
   return `
     <div class="mesa-poker__centro-comunitarias">
-      <span class="mesa-poker__centro-etiq">Cartas Comunitarias</span>
-      <div class="cartas-fila cartas-fila--mini mesa-poker__comunitarias">${cartasHtml}</div>
+      <div class="cartas-fila cartas-fila--mesa mesa-poker__comunitarias">${cartasHtml}</div>
     </div>`;
 }
 
@@ -132,25 +132,29 @@ function poolFichasHtml(
   esEspectador: boolean,
 ): string {
   const disponibles = centro.filter((f) => f.color === colorActivo).sort((a, b) => a.estrellas - b.estrellas);
-  let cuerpo: string;
   if (esShowdown || disponibles.length === 0) {
-    cuerpo = `<span class="mesa-poker__pool-vacio">Fichas ${NOMBRE_COLOR_FICHA[colorActivo]}</span>`;
-  } else if (esEspectador) {
-    cuerpo = fichasSoloLecturaHtml(disponibles);
+    return '';
+  }
+
+  let cuerpo: string;
+  if (esEspectador) {
+    cuerpo = disponibles
+      .map((f) => `<span data-animate-key="f-${f.color}-${f.estrellas}">${fichaInsigniaHtml(f)}</span>`)
+      .join('');
   } else {
     const accion = tengoFichaActiva ? 'INTERCAMBIAR_CENTRO' : 'TOMAR_FICHA';
     const etiqueta = tengoFichaActiva ? 'Intercambiar' : 'Tomar';
-    cuerpo = `<div class="fichas-fila mesa-poker__pool">${disponibles
+    cuerpo = disponibles
       .map((f) => {
         const boton = fichaBotonHtml(f, accion, etiqueta);
         return `<span data-animate-key="f-${f.color}-${f.estrellas}">${boton}</span>`;
       })
-      .join('')}</div>`;
+      .join('');
   }
+
   return `
-    <div class="mesa-poker__centro-pool mesa-poker__centro-pool--${colorActivo.toLowerCase()}">
-      <span class="mesa-poker__centro-etiq">Fichas ${NOMBRE_COLOR_FICHA[colorActivo]}</span>
-      ${cuerpo}
+    <div class="mesa-poker__pool-centro mesa-poker__pool-centro--${colorActivo.toLowerCase()}">
+      <div class="fichas-fila mesa-poker__pool">${cuerpo}</div>
     </div>`;
 }
 
@@ -202,11 +206,27 @@ export function htmlAsientos(ctx: MesaPokerContexto): string {
   const { vista, golpe, esEspectador, tengoFichaActiva, esShowdown } = ctx;
   const yoId = esEspectador ? null : vista.perspectivaJugadorId;
   const colorActivo = golpe.fichas.colorActivo;
-  return calcularPosicionesAsientos(vista.jugadores, yoId)
+  const posiciones = calcularPosicionesAsientos(vista.jugadores, yoId);
+  const rivales = posiciones.filter((p) => p.zona === 'rival');
+  const local = posiciones.find((p) => p.zona === 'local');
+
+  const htmlRivales = rivales
     .map((pos) =>
       asientoHtml(pos, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador, golpe),
     )
     .join('');
+
+  const htmlLocal =
+    local !== undefined
+      ? asientoHtml(local, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador, golpe)
+      : '';
+
+  return `
+    <div
+      class="mesa-poker__rivales"
+      style="--rivales-count:${contarRivales(vista.jugadores, yoId)}"
+    >${htmlRivales}</div>
+    <div class="mesa-poker__local">${htmlLocal}</div>`;
 }
 
 function cartasAsientoHtml(
@@ -259,10 +279,10 @@ function asientoHtml(
     golpe.reveladoShowdown < golpe.ordenShowdown.length &&
     golpe.ordenShowdown[golpe.reveladoShowdown] === jugador.id;
   const claseRevelando = esSiguienteRevelar ? ' asiento--revelando' : '';
-  const insignias =
-    susFichas.length === 0
+  const ranurasFichas =
+    esShowdown || golpe === null
       ? ''
-      : `<span class="asiento__fichas">${susFichas.map(fichaInsigniaHtml).join('')}</span>`;
+      : ranurasFichasJugadorHtml(susFichas, colorActivo);
 
   const otroTieneActiva = susFichas.some((f) => f.color === colorActivo);
   const puedeIntercambiar = !esEspectador && !esYo && !esShowdown && otroTieneActiva;
@@ -272,11 +292,13 @@ function asientoHtml(
 
   const confirmBadge = !esShowdown && haConfirmado ? '<span class="asiento__confirmado" title="Listo">✓</span>' : '';
   const claseYo = esYo ? ' asiento--yo' : '';
+  const claseZona = pos.zona === 'local' ? ' asiento--local' : ' asiento--rival';
+  const estiloPosicion =
+    pos.zona === 'local' ? ` style="--asiento-x:${x}%;--asiento-y:${y}%"` : '';
 
   return `
     <article
-      class="asiento${claseYo}${claseRevelando}"
-      style="--asiento-x:${x}%;--asiento-y:${y}%"
+      class="asiento${claseYo}${claseZona}${claseRevelando}"${estiloPosicion}
       data-jugador-id="${escapar(jugador.id)}"
     >
       <div class="asiento__cabecera">
@@ -285,7 +307,7 @@ function asientoHtml(
         ${confirmBadge}
       </div>
       ${cartasAsientoHtml(jugador, esYo, esShowdown, golpe, esSiguienteRevelar)}
-      ${insignias}
+      ${ranurasFichas}
       ${botonIntercambio}
     </article>`;
 }
@@ -300,13 +322,10 @@ export interface MesaPokerContexto {
 
 export function htmlMesaPoker(ctx: MesaPokerContexto): string {
   const { vista, golpe, esEspectador, tengoFichaActiva, esShowdown } = ctx;
-  const yoId = esEspectador ? null : vista.perspectivaJugadorId;
   const colorActivo = golpe.fichas.colorActivo;
   const colorRonda = COLOR_DE_RONDA[golpe.ronda];
   const etiquetaRonda = ETIQUETA_RONDA[golpe.ronda];
-  const asientos = calcularPosicionesAsientos(vista.jugadores, yoId).map((pos) =>
-    asientoHtml(pos, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador, golpe),
-  );
+  const asientos = htmlAsientos(ctx);
 
   const botonTerminar =
     !esEspectador && vista.anfitrionId === vista.perspectivaJugadorId
@@ -330,12 +349,18 @@ export function htmlMesaPoker(ctx: MesaPokerContexto): string {
       </div>
       ${bannerResultado}
       <div class="mesa-poker__mesa">
-        <div class="mesa-poker__felt" aria-hidden="true"></div>
+        <div class="mesa-poker__backdrop" aria-hidden="true"></div>
+        <img
+          class="mesa-poker__felt"
+          src="${escapar(urlMesa())}"
+          alt=""
+          aria-hidden="true"
+        />
         <div class="mesa-poker__centro">
           ${centroComunitariasHtml(golpe)}
           ${poolFichasHtml(golpe.fichas.centro, colorActivo, tengoFichaActiva, esShowdown, esEspectador)}
         </div>
-        <div class="mesa-poker__asientos">${asientos.join('')}</div>
+        <div class="mesa-poker__asientos">${asientos}</div>
       </div>
       <div class="mesa-poker__overlay" id="mesa-poker-overlay"></div>
       <footer class="mesa-poker__bar">

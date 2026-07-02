@@ -5,7 +5,7 @@ import {
   registrarEspectador,
   registrarJugador,
 } from '../src/dominio/lobby';
-import { proyectarEstadoPara, BOLSILLO_OCULTO } from '../src/dominio/proyeccion';
+import { proyectarEstadoPara } from '../src/dominio/proyeccion';
 import { Coordinador } from '../src/servidor/coordinador';
 
 describe('registro de espectadores (lobby)', () => {
@@ -80,9 +80,10 @@ describe('Coordinador: modo espectador', () => {
     expect(vista.esEspectador).toBe(true);
     expect(
       vista.jugadores.every(
-        (j) => j.bolsillo === BOLSILLO_OCULTO || j.bolsillo === null,
+        (j) => j.bolsillo === null || Array.isArray(j.bolsillo),
       ),
     ).toBe(true);
+    expect(vista.jugadores.filter((j) => Array.isArray(j.bolsillo)).length).toBe(3);
   });
 
   it('bloquea acciones de juego a los espectadores', () => {
@@ -123,5 +124,28 @@ describe('proyección para espectadores', () => {
     const vista = proyectarEstadoPara(c.obtenerEstado(), 'obs1');
     expect(vista.esEspectador).toBe(true);
     expect(vista.espectadores).toHaveLength(1);
+  });
+
+  it('revela las cartas de bolsillo de todos los jugadores al espectador', () => {
+    const c = new Coordinador({ generarSemilla: () => 42 });
+    for (const [id, nombre] of [
+      ['j1', 'Uno'],
+      ['j2', 'Dos'],
+      ['j3', 'Tres'],
+    ] as const) {
+      c.procesarMensaje(id, { tipo: 'UNIRSE', payload: { nombre } });
+    }
+    c.procesarMensaje('j1', {
+      tipo: 'INICIAR',
+      payload: {},
+    }, { conexionPorJugador: new Map([['j1', true], ['j2', true], ['j3', true]]) });
+    c.procesarMensaje('obs1', {
+      tipo: 'UNIRSE',
+      payload: { nombre: 'Observador', rol: 'ESPECTADOR' },
+    });
+
+    const vista = proyectarEstadoPara(c.obtenerEstado(), 'obs1');
+    expect(vista.esEspectador).toBe(true);
+    expect(vista.jugadores.every((j) => Array.isArray(j.bolsillo))).toBe(true);
   });
 });

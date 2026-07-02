@@ -1,9 +1,33 @@
 import type { ColorFicha, Ficha } from '../../protocolo';
+import { COLORES_FICHA } from '../../../dominio/modelos';
 
 /** Ficha no interactiva (insignia junto al asiento o en showdown). */
 export function fichaInsigniaHtml(ficha: Ficha): string {
   const color = ficha.color.toLowerCase();
-  return `<span class="ficha ficha--${color}" title="Ficha ${ficha.estrellas}">${ficha.estrellas}</span>`;
+  return `<span class="ficha ficha--${color}" data-animate-key="f-${ficha.color}-${ficha.estrellas}" title="Ficha ${ficha.estrellas}">${ficha.estrellas}</span>`;
+}
+
+/**
+ * Cuatro ranuras fijas (una por ronda/color) bajo el asiento del jugador.
+ * Las vacías se muestran como círculos; al tomar ficha, la ranura correspondiente se rellena.
+ */
+export function ranurasFichasJugadorHtml(
+  fichas: readonly Ficha[],
+  colorActivo: ColorFicha,
+): string {
+  const porColor = new Map(fichas.map((ficha) => [ficha.color, ficha]));
+
+  const ranuras = COLORES_FICHA.map((color) => {
+    const ficha = porColor.get(color);
+    if (ficha !== undefined) {
+      return `<span class="ficha-ranura ficha-ranura--llena ficha-ranura--${color.toLowerCase()}">${fichaInsigniaHtml(ficha)}</span>`;
+    }
+
+    const activa = color === colorActivo ? ' ficha-ranura--activa' : '';
+    return `<span class="ficha-ranura ficha-ranura--vacia ficha-ranura--${color.toLowerCase()}${activa}" aria-label="Espacio ficha ${NOMBRE_COLOR_FICHA[color]}" title="Ficha ${NOMBRE_COLOR_FICHA[color]}"></span>`;
+  }).join('');
+
+  return `<div class="asiento__ranuras-fichas" aria-label="Fichas por ronda">${ranuras}</div>`;
 }
 
 /** Botón circular del pool central (tomar / intercambiar). */

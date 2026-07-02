@@ -166,8 +166,8 @@ export interface AjustesPartida {
   sinKickers: boolean;
 }
 
-/** Ajustes por defecto: comportamiento clásico (con kickers). */
-export const AJUSTES_POR_DEFECTO: AjustesPartida = { sinKickers: false };
+/** Ajustes por defecto: sin kickers (comparación por cartas de bolsillo). */
+export const AJUSTES_POR_DEFECTO: AjustesPartida = { sinKickers: true };
 
 /** Número mínimo de Jugadores admitido por las reglas del Modo Básico. */
 export const MIN_JUGADORES = 3;

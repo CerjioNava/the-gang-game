@@ -46,10 +46,6 @@ export interface AccionesLobby extends AccionesEntradaLobby {
 
   expulsarMiembro(jugadorId: string): void;
 
-  /** Envía la configuración de ajustes del modo de juego. */
-
-  configurarAjustes(ajustes: { sinKickers: boolean }): void;
-
 }
 
 
@@ -247,15 +243,11 @@ export function renderizarLobby(
 
   let avisoInicio = '';
 
-  if (!esAnfitrion && registrado) {
-
-    avisoInicio = '<p class="lobby__aviso">Solo el anfitrión puede dar el golpe.</p>';
-
-  } else if (!aforoValido) {
+  if (!aforoValido && registrado) {
 
     avisoInicio = `<p class="lobby__aviso">Hacen falta al menos ${JUGADORES_MIN} ladrones para dar el golpe.</p>`;
 
-  } else if (hayDesconectados) {
+  } else if (hayDesconectados && registrado) {
 
     avisoInicio =
 
@@ -307,48 +299,6 @@ export function renderizarLobby(
 
 
 
-        <fieldset class="lobby__ajustes" ${!esAnfitrion || esEspectador ? 'disabled' : ''}>
-
-          <legend>Ajustes del Golpe</legend>
-
-          <div class="lobby__ajuste-fila">
-
-            <label class="switch" for="check-sin-kickers">
-
-              <input
-
-                type="checkbox"
-
-                id="check-sin-kickers"
-
-                role="switch"
-
-                ${estado.vista?.ajustes?.sinKickers ? 'checked' : ''}
-
-                ${!esAnfitrion ? 'disabled' : ''}
-
-              />
-
-              <span class="switch__slider"></span>
-
-            </label>
-
-            <span class="lobby__ajuste-texto">Jugar sin kickers</span>
-
-          </div>
-
-          <p class="lobby__ajuste-desc">
-
-            Al empatar en categoría, se comparan las cartas de bolsillo en vez de los kickers.
-
-          </p>
-
-          ${!esAnfitrion && registrado ? '<p class="lobby__ajuste-nota">Solo el anfitrión puede cambiar los ajustes.</p>' : ''}
-
-        </fieldset>
-
-
-
         <button
 
           type="button"
@@ -357,7 +307,7 @@ export function renderizarLobby(
 
           class="boton boton--golpe"
 
-          ${puedeIniciar && esAnfitrion && esJugador ? '' : 'disabled'}
+          ${puedeIniciar && esJugador ? '' : 'disabled'}
 
         >
 
@@ -440,14 +390,6 @@ export function renderizarLobby(
   );
 
 
-
-  const checkSinKickers = contenedor.querySelector<HTMLInputElement>('#check-sin-kickers');
-
-  checkSinKickers?.addEventListener('change', () => {
-
-    acciones.configurarAjustes({ sinKickers: checkSinKickers.checked });
-
-  });
 
 }
 
