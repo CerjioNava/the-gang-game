@@ -6,6 +6,7 @@ import type { AccionesMesa } from './tipos';
 import type { EstadoFichas } from '../../../dominio/modelos';
 import {
   animarEntradaMesa,
+  animarEntradaShowdownMesa,
   animarMovimientosFichas,
   animarNovedades,
   animarPulso,
@@ -22,9 +23,10 @@ import {
   htmlPoolCentro,
   htmlSeccionComunitarias,
   htmlTemporizadorHud,
-  htmlToastResultado,
   type MesaPokerContexto,
 } from './mesaPokerHtml';
+import { actualizarToastResultado, limpiarToastMesa } from './mesaToast';
+import { htmlShowdownOrdenMesa, showdownMesaCompleto } from '../showdown';
 import { enlazarEventosMesa, recordatorioEsperaHtml } from './mesaEventos';
 
 interface MesaSnapshot {
@@ -153,15 +155,7 @@ function aplicarParches(
     }
   }
 
-  const toastHtml = htmlToastResultado(vista);
-  const toastPrevio = mesa.querySelector('.mesa-poker__toast');
-  if (toastHtml === '') {
-    toastPrevio?.remove();
-  } else if (toastPrevio !== null) {
-    toastPrevio.outerHTML = toastHtml;
-  } else {
-    mesa.insertAdjacentHTML('afterbegin', toastHtml);
-  }
+  actualizarToastResultado(mesa, vista);
 
   let movimientosFichas: ReturnType<typeof detectarMovimientosFichas> = [];
   const rectsOrigen = new Map<string, DOMRect>();
@@ -186,13 +180,31 @@ function aplicarParches(
     }
 
     const poolPrev = centro.querySelector('.mesa-poker__pool-centro');
-    const poolHtml = htmlPoolCentro(ctx);
-    if (poolHtml === '') {
-      poolPrev?.remove();
-    } else if (poolPrev !== null) {
-      poolPrev.outerHTML = poolHtml;
+    const showdownPrev = centro.querySelector('.showdown-mesa');
+    const showdownHtml = htmlShowdownOrdenMesa(vista, golpe);
+
+    if (showdownHtml === '') {
+      showdownPrev?.remove();
+      const poolHtml = htmlPoolCentro(ctx);
+      if (poolHtml === '') {
+        poolPrev?.remove();
+      } else if (poolPrev !== null) {
+        poolPrev.outerHTML = poolHtml;
+      } else {
+        centro.insertAdjacentHTML('beforeend', poolHtml);
+      }
     } else {
-      centro.insertAdjacentHTML('beforeend', poolHtml);
+      poolPrev?.remove();
+      if (showdownPrev !== null) {
+        showdownPrev.outerHTML = showdownHtml;
+      } else {
+        const comunitariasEl = centro.querySelector('.mesa-poker__centro-comunitarias');
+        if (comunitariasEl !== null) {
+          comunitariasEl.insertAdjacentHTML('afterend', showdownHtml);
+        } else {
+          centro.insertAdjacentHTML('beforeend', showdownHtml);
+        }
+      }
     }
   }
 
@@ -209,6 +221,18 @@ function aplicarParches(
     const jugadorId = orden[ctx.golpe.reveladoShowdown - 1];
     if (jugadorId !== undefined) {
       animarVolteoShowdown(mesa, jugadorId);
+    }
+  }
+
+  const showdownCompleto = showdownMesaCompleto(vista, golpe);
+  if (
+    prev !== null &&
+    showdownCompleto &&
+    prev.reveladoShowdown < vista.jugadores.length
+  ) {
+    const showdownMesa = mesa.querySelector('.showdown-mesa');
+    if (showdownMesa !== null) {
+      animarEntradaShowdownMesa(showdownMesa);
     }
   }
 
@@ -283,6 +307,10 @@ export function actualizarMesa(
 ): void {
   const ctx = construirContexto(estado);
   if (ctx === null) {
+    const mesaPrev = contenedor.querySelector<HTMLElement>('.mesa-poker');
+    if (mesaPrev !== null) {
+      limpiarToastMesa(mesaPrev);
+    }
     contenedor.innerHTML = recordatorioEsperaHtml();
     snapshots.delete(contenedor);
     return;

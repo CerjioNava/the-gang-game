@@ -3,15 +3,17 @@
 // _Requirements: 8.2, 9.3_
 
 import {
+  comparar,
+  compararSinKickers,
   evaluar,
   resolverShowdown as evaluarShowdownDominio,
   type ManoEvaluada,
 } from '../../dominio';
-import type { EstadoGolpe, Jugador } from '../../dominio/modelos';
+import type { Carta, EstadoGolpe, Jugador } from '../../dominio/modelos';
 import { BOLSILLO_OCULTO, type VistaGolpe, type VistaShowdownResuelto } from '../../dominio/proyeccion';
 import type { JugadorVisible, VistaPartida } from '../protocolo';
 import { cartaHtml } from './cartasHtml';
-import { fichaInsigniaHtml } from './atoms/fichaHtml';
+import { fichaInsigniaHtml, fichaOrdenShowdownHtml } from './atoms/fichaHtml';
 import { estatusJugadorHtml } from './estatusJugador';
 import { NOMBRE_CATEGORIA } from './ranking';
 import { nombreConTooltipHtml } from './tooltipNombre';
@@ -53,6 +55,58 @@ function categoriaManoTexto(jugador: JugadorVisible, golpe: VistaGolpe): string 
   return NOMBRE_CATEGORIA[resultado.mano.categoria];
 }
 
+interface PosicionFuerza {
+  jugador: JugadorVisible;
+  mano: ManoEvaluada;
+  bolsillo: [Carta, Carta];
+  rangoVerde: number;
+}
+
+/** Indica si todas las manos del showdown ya fueron reveladas. */
+export function showdownMesaCompleto(vista: VistaPartida, golpe: VistaGolpe): boolean {
+  return golpe.ronda === 'SHOWDOWN' && golpe.reveladoShowdown >= vista.jugadores.length;
+}
+
+/** Orden ascendente por fuerza de mano (rango verde 1 = más débil). */
+export function ordenarPorFuerzaMano(
+  vista: VistaPartida,
+  golpe: VistaGolpe,
+): PosicionFuerza[] | null {
+  const usarSinKickers = vista.ajustes?.sinKickers === true;
+  const evaluados: Array<{
+    jugador: JugadorVisible;
+    mano: ManoEvaluada;
+    bolsillo: [Carta, Carta];
+  }> = [];
+
+  for (const jugador of vista.jugadores) {
+    if (jugador.bolsillo === null || jugador.bolsillo === BOLSILLO_OCULTO) {
+      return null;
+    }
+    const resultado = evaluar(jugador.bolsillo, golpe.comunitarias);
+    if (!resultado.ok) {
+      return null;
+    }
+    evaluados.push({
+      jugador,
+      mano: resultado.mano,
+      bolsillo: jugador.bolsillo,
+    });
+  }
+
+  evaluados.sort((a, b) => {
+    if (usarSinKickers) {
+      return compararSinKickers(a.mano, b.mano, a.bolsillo, b.bolsillo);
+    }
+    return comparar(a.mano, b.mano);
+  });
+
+  return evaluados.map((entrada, indice) => ({
+    ...entrada,
+    rangoVerde: indice + 1,
+  }));
+}
+
 function evaluarResultadoShowdown(vista: VistaPartida, golpe: VistaGolpe) {
   const jugadores: Jugador[] = vista.jugadores.map((j) => ({
     id: j.id,
@@ -74,6 +128,115 @@ function evaluarResultadoShowdown(vista: VistaPartida, golpe: VistaGolpe) {
     reveladoShowdown: golpe.reveladoShowdown,
   };
   return evaluarShowdownDominio(jugadores, estadoGolpe, vista.ajustes);
+}
+
+function celdaOrdenMesaHtml(
+  posicion: PosicionShowdown,
+  golpe: VistaGolpe,
+  indiceRojo: number,
+  rangoVerde: number,
+  esViolacion: boolean,
+  tipo: 'rojo' | 'verde',
+  estrellas: number,
+): string {
+  const categoria = categoriaManoTexto(posicion.jugador, golpe);
+  const desajuste = tipo === 'rojo' && rangoVerde !== indiceRojo + 1;
+  const clases = [
+    'showdown-mesa__celda',
+    desajuste ? 'showdown-mesa__celda--desajuste' : '',
+    esViolacion ? 'showdown-mesa__celda--violacion' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return `
+    <li class="${clases}">
+      ${fichaOrdenShowdownHtml(estrellas, tipo)}
+      <span class="showdown-mesa__nombre">${escapar(posicion.jugador.nombre)}</span>
+      <span class="showdown-mesa__categoria">${escapar(categoria)}</span>
+    </li>`;
+}
+
+/** Bloque central en la mesa: orden revelado vs orden correcto + banner dramático. */
+export function htmlShowdownOrdenMesa(vista: VistaPartida, golpe: VistaGolpe): string {
+  if (!showdownMesaCompleto(vista, golpe)) {
+    return '';
+  }
+
+  const evaluacion = evaluarResultadoShowdown(vista, golpe);
+  const ordenFuerza = ordenarPorFuerzaMano(vista, golpe);
+  if (evaluacion === null || ordenFuerza === null) {
+    return '';
+  }
+
+  const ordenRojo = ordenarPorFichaRoja(vista, golpe);
+  const rangoVerdePorId = new Map(ordenFuerza.map((p) => [p.jugador.id, p.rangoVerde]));
+  const posicionRojaPorId = new Map(ordenRojo.map((p, i) => [p.jugador.id, i]));
+
+  let violacionIdx = -1;
+  if (evaluacion.violacion !== null) {
+    violacionIdx = ordenRojo.findIndex((p) => p.jugador.id === evaluacion.violacion!.posterior);
+  }
+
+  const filasRojas = ordenRojo
+    .map((posicion, indice) => {
+      const rangoVerde = rangoVerdePorId.get(posicion.jugador.id) ?? indice + 1;
+      const esViolacion = indice === violacionIdx;
+      const estrellas = posicion.estrellasRojas > 0 ? posicion.estrellasRojas : indice + 1;
+      return celdaOrdenMesaHtml(posicion, golpe, indice, rangoVerde, esViolacion, 'rojo', estrellas);
+    })
+    .join('');
+
+  const filasVerdes = ordenFuerza
+    .map((posicion) => {
+      const posicionRoja: PosicionShowdown = {
+        jugador: posicion.jugador,
+        estrellasRojas:
+          ordenRojo.find((p) => p.jugador.id === posicion.jugador.id)?.estrellasRojas ??
+          posicion.rangoVerde,
+      };
+      const indiceRojo = posicionRojaPorId.get(posicion.jugador.id) ?? posicion.rangoVerde - 1;
+      return celdaOrdenMesaHtml(
+        posicionRoja,
+        golpe,
+        indiceRojo,
+        posicion.rangoVerde,
+        false,
+        'verde',
+        posicion.rangoVerde,
+      );
+    })
+    .join('');
+
+  const ayuda = evaluacion.exito
+    ? 'Orden correcto: la fuerza no decrece al revelar.'
+    : 'Orden incorrecto: una mano posterior es más débil que la anterior.';
+
+  const banner = evaluacion.exito
+    ? `<div class="showdown-mesa__banner showdown-mesa__banner--exito" role="status">
+        <strong>¡Bóveda abierta!</strong>
+        <span>Golpe ${golpe.numero} · éxito para la banda</span>
+      </div>`
+    : `<div class="showdown-mesa__banner showdown-mesa__banner--fracaso" role="status">
+        <strong>¡Alarma activada!</strong>
+        <span>Golpe ${golpe.numero} · el golpe fracasó</span>
+      </div>`;
+
+  return `
+    <div class="showdown-mesa" role="region" aria-label="Resultado del Showdown">
+      ${banner}
+      <div class="showdown-mesa__filas">
+        <section class="showdown-mesa__fila" aria-label="Orden revelado">
+          <p class="showdown-mesa__etiq">Orden revelado (ficha roja)</p>
+          <ol class="showdown-mesa__lista">${filasRojas}</ol>
+        </section>
+        <section class="showdown-mesa__fila" aria-label="Orden correcto por fuerza">
+          <p class="showdown-mesa__etiq">Orden correcto (ficha verde)</p>
+          <ol class="showdown-mesa__lista">${filasVerdes}</ol>
+        </section>
+      </div>
+      <p class="showdown-mesa__ayuda">${ayuda}</p>
+    </div>`;
 }
 
 /** Resumen del orden de revelado en la barra inferior (sin banner de resultado). */
@@ -163,11 +326,8 @@ export function htmlAccionesShowdown(vista: VistaPartida, esEspectador: boolean)
       </button>`;
   }
 
-  const resumen = revelado >= total ? htmlResumenOrdenShowdown(vista, golpe) : '';
-
   return `
     <div class="showdown-acciones">
-      ${resumen}
       <div class="showdown-acciones__botones">${boton}</div>
     </div>`;
 }

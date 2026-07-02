@@ -18,13 +18,18 @@
 //
 // _Requirements: 10.1, 10.2, 10.5, 11.1, 11.2, 11.3_
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EstadoCliente } from '../src/cliente/estado';
 import type { Carta, Ficha, VistaPartida } from '../src/cliente/protocolo';
 import { BOLSILLO_OCULTO } from '../src/dominio/proyeccion';
 import { CategoriaMano } from '../src/dominio/modelos';
 import { renderizarMesa, type AccionesMesa } from '../src/cliente/vistas/mesa';
+import {
+  descartarToastParaPruebas,
+  reiniciarToastsDescartadosParaPruebas,
+} from '../src/cliente/vistas/mesa/mesaToast';
+import { ordenarPorFuerzaMano } from '../src/cliente/vistas/showdown';
 import { renderizarLobby, type AccionesLobby } from '../src/cliente/vistas/lobby';
 import {
   CATEGORIAS_RANKING,
@@ -281,13 +286,26 @@ describe('Vista de la mesa: showdown (8.2)', () => {
     expect(contenedor.querySelector('.asiento--revelando')).not.toBeNull();
   });
 
-  it('con todas las manos reveladas muestra resumen en barra y botón resolver', () => {
+  it('con todas las manos reveladas muestra orden en la mesa y botón resolver', () => {
     const contenedor = nuevoContenedor();
     renderizarMesa(contenedor, estadoCliente(vistaShowdownCompleto()), ACCIONES_INERTES);
 
-    expect(contenedor.querySelector('.showdown-resumen')).not.toBeNull();
+    expect(contenedor.querySelector('.showdown-mesa')).not.toBeNull();
+    expect(contenedor.querySelector('.showdown-mesa__banner')).not.toBeNull();
+    expect(contenedor.querySelectorAll('.showdown-mesa__fila').length).toBe(2);
+    expect(contenedor.querySelectorAll('.ficha--verde').length).toBeGreaterThan(0);
+    expect(contenedor.querySelectorAll('.ficha--rojo.ficha--orden-showdown').length).toBe(4);
+    expect(contenedor.querySelector('.showdown-resumen')).toBeNull();
     expect(contenedor.querySelector('#boton-resolver')).not.toBeNull();
     expect(contenedor.querySelector('#boton-revelar-showdown')).toBeNull();
+  });
+
+  it('ordenarPorFuerzaMano devuelve rangos verdes ascendentes por fuerza', () => {
+    const vista = vistaShowdownCompleto();
+    const golpe = vista.golpeActual!;
+    const orden = ordenarPorFuerzaMano(vista, golpe);
+    expect(orden).not.toBeNull();
+    expect(orden!.map((p) => p.rangoVerde)).toEqual([1, 2, 3, 4]);
   });
 });
 
@@ -385,6 +403,7 @@ describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
 
   it('no muestra el overlay de showdown resuelto cuando ya empezó el siguiente golpe', () => {
     const contenedor = nuevoContenedor();
+    reiniciarToastsDescartadosParaPruebas();
     const vista: VistaPartida = {
       ...vistaEnCurso(),
       golpesJugados: 1,
@@ -427,6 +446,74 @@ describe('Vista de la mesa: idioma español y glosario (11.1, 11.2)', () => {
 
     expect(contenedor.querySelector('#mesa-poker-overlay .showdown--resuelto')).toBeNull();
     expect(contenedor.querySelector('.mesa-poker__toast--fracaso')).not.toBeNull();
+  });
+
+  it('oculta el toast de resultado tras unos segundos', () => {
+    vi.useFakeTimers();
+    try {
+      const contenedor = nuevoContenedor();
+      reiniciarToastsDescartadosParaPruebas();
+      const vista: VistaPartida = {
+        ...vistaEnCurso(),
+        golpesJugados: 1,
+        ultimoResultadoGolpe: { numero: 1, exito: false },
+        golpeActual: {
+          numero: 2,
+          ronda: 'PRE_FLOP',
+          comunitarias: [],
+          fichas: {
+            numJugadores: 4,
+            centro: [],
+            porJugador: {
+              j1: [ficha('BLANCO', 1)],
+              j2: [ficha('BLANCO', 2)],
+              j3: [ficha('BLANCO', 3)],
+              j4: [ficha('BLANCO', 4)],
+            },
+            colorActivo: 'BLANCO',
+          },
+          confirmados: [],
+          reveladoShowdown: 0,
+          ordenShowdown: [],
+        },
+      };
+
+      renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+      expect(contenedor.querySelector('.mesa-poker__toast--fracaso')).not.toBeNull();
+
+      vi.advanceTimersByTime(4500);
+      expect(contenedor.querySelector('.mesa-poker__toast--fracaso')).toBeNull();
+
+      renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+      expect(contenedor.querySelector('.mesa-poker__toast--fracaso')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('permite descartar toast manualmente en pruebas sin reinsertarlo', () => {
+    const contenedor = nuevoContenedor();
+    reiniciarToastsDescartadosParaPruebas();
+    const vista: VistaPartida = {
+      ...vistaEnCurso(),
+      golpesJugados: 1,
+      ultimoResultadoGolpe: { numero: 1, exito: true },
+      golpeActual: {
+        ...vistaEnCurso().golpeActual!,
+        numero: 2,
+        ronda: 'PRE_FLOP',
+        comunitarias: [],
+        reveladoShowdown: 0,
+        ordenShowdown: [],
+      },
+    };
+
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+    expect(contenedor.querySelector('.mesa-poker__toast--exito')).not.toBeNull();
+
+    descartarToastParaPruebas('1-true');
+    renderizarMesa(contenedor, estadoCliente(vista), ACCIONES_INERTES);
+    expect(contenedor.querySelector('.mesa-poker__toast--exito')).toBeNull();
   });
 });
 

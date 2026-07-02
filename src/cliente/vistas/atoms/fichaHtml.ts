@@ -69,3 +69,9 @@ export const NOMBRE_COLOR_FICHA: Record<ColorFicha, string> = {
 export function indicadorColorFichaHtml(color: ColorFicha): string {
   return `<span class="ficha ficha--indicador ficha--${color.toLowerCase()}" title="Fichas ${NOMBRE_COLOR_FICHA[color]}" aria-hidden="true"></span>`;
 }
+
+/** Ficha de orden en showdown (roja = revelado, verde = fuerza correcta). */
+export function fichaOrdenShowdownHtml(estrellas: number, tipo: 'rojo' | 'verde'): string {
+  const titulo = tipo === 'rojo' ? 'Orden revelado' : 'Orden por fuerza';
+  return `<span class="ficha ficha--${tipo} ficha--orden-showdown" title="${titulo} ${estrellas}" aria-label="${titulo} ${estrellas}">${estrellas}</span>`;
+}

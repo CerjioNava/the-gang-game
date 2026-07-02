@@ -113,6 +113,21 @@
   color: #f0b8b8;
 }
 
+.mesa-poker__toast--saliendo {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesa-poker__toast--saliendo {
+    transition: opacity 0.15s ease;
+    transform: translateX(-50%);
+  }
+}
+
 .mesa-poker__mesa {
   grid-row: 2;
   grid-column: 1;
@@ -577,6 +592,168 @@
 .showdown-acciones__botones {
   display: flex;
   justify-content: flex-end;
+}
+
+.showdown-mesa {
+  grid-row: 3;
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  max-width: 100%;
+  pointer-events: auto;
+}
+
+.showdown-mesa__banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  text-align: center;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  width: min(100%, 28rem);
+}
+
+.showdown-mesa__banner strong {
+  font-size: clamp(1rem, 2.8vw, 1.35rem);
+  letter-spacing: 0.02em;
+}
+
+.showdown-mesa__banner span {
+  font-size: 0.82em;
+  opacity: 0.92;
+}
+
+.showdown-mesa__banner--exito {
+  background: linear-gradient(135deg, rgba(180, 140, 40, 0.95), rgba(120, 90, 20, 0.92));
+  border: 2px solid rgba(255, 215, 100, 0.65);
+  color: #fff8e6;
+}
+
+.showdown-mesa__banner--fracaso {
+  background: linear-gradient(135deg, rgba(160, 35, 35, 0.95), rgba(90, 15, 15, 0.92));
+  border: 2px solid rgba(255, 100, 100, 0.55);
+  color: #ffe8e8;
+  animation: showdown-mesa-alarm-shake 0.55s ease-out;
+}
+
+@keyframes showdown-mesa-alarm-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .showdown-mesa__banner--fracaso {
+    animation: none;
+  }
+}
+
+.showdown-mesa__filas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.showdown-mesa__fila {
+  width: 100%;
+}
+
+.showdown-mesa__etiq {
+  margin: 0 0 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.showdown-mesa__lista {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.showdown-mesa__celda {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.28rem 0.38rem;
+  border-radius: 8px;
+  background: rgba(8, 12, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 4.5rem;
+  max-width: 6.5rem;
+}
+
+.showdown-mesa__celda--desajuste {
+  border-color: rgba(255, 180, 80, 0.55);
+  box-shadow: 0 0 10px rgba(255, 160, 60, 0.2);
+}
+
+.showdown-mesa__celda--violacion {
+  border-color: rgba(232, 93, 93, 0.75);
+  box-shadow: 0 0 12px rgba(232, 93, 93, 0.35);
+}
+
+.showdown-mesa__nombre {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.showdown-mesa__categoria {
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
+  line-height: 1.15;
+}
+
+.showdown-mesa__ayuda {
+  margin: 0;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.78);
+  text-align: center;
+  max-width: 26rem;
+}
+
+.ficha--orden-showdown {
+  width: 1.65rem;
+  height: 1.65rem;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .showdown-resumen {

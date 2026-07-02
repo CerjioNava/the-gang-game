@@ -24,6 +24,32 @@ export function animarPulso(elemento: Element): void {
   );
 }
 
+/** Entrada dramática del bloque de resultado de showdown en la mesa. */
+export function animarEntradaShowdownMesa(elemento: Element): void {
+  if (animacionesReducidas()) {
+    return;
+  }
+  const banner = elemento.querySelector('.showdown-mesa__banner');
+  if (banner !== null) {
+    banner.animate(
+      [
+        { opacity: 0, transform: 'scale(0.88)' },
+        { opacity: 1, transform: 'scale(1)' },
+      ],
+      { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+  }
+  elemento.querySelectorAll('.showdown-mesa__fila').forEach((fila, indice) => {
+    fila.animate(
+      [
+        { opacity: 0, transform: 'translateY(12px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      { duration: 360, delay: 120 + indice * 80, easing: 'ease-out' },
+    );
+  });
+}
+
 /** Entrada suave para cartas o fichas nuevas. */
 export function animarEntrada(elemento: Element): void {
   if (animacionesReducidas()) {

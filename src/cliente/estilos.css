@@ -957,6 +957,11 @@ body {
   color: #f7e9e7;
 }
 
+.ficha--verde {
+  background: #2d8a4e;
+  color: #e8f5ec;
+}
+
 /* La banda (lista de jugadores). */
 .banda {
   list-style: none;
