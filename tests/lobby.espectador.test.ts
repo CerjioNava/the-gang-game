@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   abandonarEspectador,
+  actualizarIdentidadJugador,
+  generarNombreEspectador,
   registrarEspectador,
   registrarJugador,
 } from '../src/dominio/lobby';
-import { proyectarEstadoPara } from '../src/dominio/proyeccion';
+import { PERSPECTIVA_INVITADO, proyectarEstadoPara } from '../src/dominio/proyeccion';
 import { Coordinador } from '../src/servidor/coordinador';
+import { crearAplicacion } from '../src/servidor/aplicacion';
 
 describe('registro de espectadores (lobby)', () => {
   it('registra un espectador con nombre único', () => {
@@ -40,6 +43,27 @@ describe('registro de espectadores (lobby)', () => {
     ];
     expect(abandonarEspectador(lista, 's1')).toEqual([{ id: 's2', nombre: 'B' }]);
   });
+
+  it('genera un nombre interno único para espectadores sin alias', () => {
+    const jugadores = [{ id: 'j1', nombre: 'El Cerebro', bolsillo: null }];
+    expect(generarNombreEspectador([], jugadores)).toBe('Espectador 1');
+    expect(
+      generarNombreEspectador([{ id: 's1', nombre: 'Espectador 1' }], jugadores),
+    ).toBe('Espectador 2');
+  });
+
+  it('permite actualizar alias de un jugador en lobby', () => {
+    const jugadores = [
+      { id: 'j1', nombre: 'El Cerebro', bolsillo: null },
+      { id: 'j2', nombre: 'La Sombra', bolsillo: null },
+    ];
+    const resultado = actualizarIdentidadJugador(jugadores, [], 'j2', 'El Fantasma', 'Nuevo perfil');
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.jugadores.find((j) => j.id === 'j2')?.nombre).toBe('El Fantasma');
+      expect(resultado.jugadores.find((j) => j.id === 'j2')?.descripcion).toBe('Nuevo perfil');
+    }
+  });
 });
 
 describe('Coordinador: modo espectador', () => {
@@ -59,6 +83,94 @@ describe('Coordinador: modo espectador', () => {
     }
     return c;
   }
+
+  it('permite unirse como espectador sin alias explícito', () => {
+    const c = new Coordinador();
+    const union = c.procesarMensaje('obs1', {
+      tipo: 'UNIRSE',
+      payload: { rol: 'ESPECTADOR' },
+    });
+    expect(union.clase).toBe('DIFUNDIR');
+    expect(c.obtenerEstado().espectadores?.[0]?.nombre).toBe('Espectador 1');
+  });
+
+  it('la aplicación acepta UNIRSE como espectador sin nombre en el payload', () => {
+    const app = crearAplicacion();
+    const enviados: Array<{ tipo: string; payload: unknown }> = [];
+    const conexion = {
+      id: 'conexion-espectador',
+      enviar(mensaje: { tipo: string; payload: unknown }) {
+        enviados.push(mensaje);
+      },
+      cerrar() {},
+    };
+
+    app.manejadores.alConectar(conexion);
+    app.manejadores.alRecibirMensaje(conexion, {
+      tipo: 'UNIRSE',
+      payload: { rol: 'ESPECTADOR' },
+    });
+
+    const errores = enviados.filter((m) => m.tipo === 'ERROR');
+    expect(errores).toHaveLength(0);
+
+    const estados = enviados.filter((m) => m.tipo === 'ESTADO');
+    expect(estados.length).toBeGreaterThan(0);
+    const vista = estados[estados.length - 1]?.payload as { esEspectador?: boolean };
+    expect(vista.esEspectador).toBe(true);
+  });
+
+  it('la aplicación saca al espectador al abandonar y devuelve vista invitado', () => {
+    const app = crearAplicacion();
+    const enviados: Array<{ tipo: string; payload: unknown }> = [];
+    const conexion = {
+      id: 'conexion-espectador',
+      enviar(mensaje: { tipo: string; payload: unknown }) {
+        enviados.push(mensaje);
+      },
+      cerrar() {},
+    };
+
+    app.manejadores.alConectar(conexion);
+    app.manejadores.alRecibirMensaje(conexion, {
+      tipo: 'UNIRSE',
+      payload: { rol: 'ESPECTADOR' },
+    });
+    expect(app.coordinador.obtenerEstado().espectadores).toHaveLength(1);
+
+    app.manejadores.alRecibirMensaje(conexion, { tipo: 'ABANDONAR' });
+
+    expect(app.coordinador.obtenerEstado().espectadores).toHaveLength(0);
+    const estados = enviados.filter((m) => m.tipo === 'ESTADO');
+    const ultima = estados[estados.length - 1]?.payload as {
+      perspectivaJugadorId?: string;
+      esEspectador?: boolean;
+    };
+    expect(ultima?.perspectivaJugadorId).toBe(PERSPECTIVA_INVITADO);
+    expect(ultima?.esEspectador).toBe(false);
+  });
+
+  it('permite cambiar alias durante el lobby', () => {
+    const c = new Coordinador();
+    c.procesarMensaje('j1', { tipo: 'UNIRSE', payload: { nombre: 'El Cerebro' } });
+    const cambio = c.procesarMensaje('j1', {
+      tipo: 'CAMBIAR_ALIAS',
+      payload: { nombre: 'El Fantasma', descripcion: 'Nueva leyenda' },
+    });
+    expect(cambio.clase).toBe('DIFUNDIR');
+    expect(c.obtenerEstado().jugadores[0]?.nombre).toBe('El Fantasma');
+  });
+
+  it('permite a un jugador no anfitrión expulsar a otro miembro', () => {
+    const c = coordinadorConTresJugadores();
+    const expulsado = c.obtenerEstado().jugadores[2]!;
+    const resultado = c.procesarMensaje('j2', {
+      tipo: 'EXPULSAR',
+      payload: { jugadorId: expulsado.id },
+    });
+    expect(resultado.clase).toBe('DIFUNDIR');
+    expect(c.obtenerEstado().jugadores).toHaveLength(2);
+  });
 
   it('permite unirse como espectador con la Partida en curso', () => {
     const c = coordinadorConTresJugadores();

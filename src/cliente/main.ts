@@ -11,11 +11,14 @@ import {
   mensajes,
   type MensajeServidor,
 } from './protocolo';
+import { PERSPECTIVA_INVITADO } from '../dominio/proyeccion';
 import {
   StoreCliente,
   descripcionParaUnirse,
   descripcionManualValida,
+  jugadorRegistrado,
   nombreParaUnirse,
+  participanteRegistrado,
   tieneNombreValido,
   DESCRIPCION_MAX,
   type EstadoCliente,
@@ -52,10 +55,22 @@ const conexion = new ConexionServidor(construirUrlWebSocket(window.location), {
   },
 });
 
+function limpiarBorradorEntrada(): void {
+  store.actualizar({
+    aliasElegido: null,
+    nombreBorrador: '',
+    descripcionBorrador: '',
+    error: null,
+  });
+}
+
 /** Aplica al store los mensajes que llegan del Servidor_Local. */
 function manejarMensajeEntrante(mensaje: MensajeServidor): void {
   if (esMensajeEstado(mensaje)) {
     store.recibirVista(mensaje.payload);
+    if (mensaje.payload.perspectivaJugadorId === PERSPECTIVA_INVITADO) {
+      limpiarBorradorEntrada();
+    }
     return;
   }
   if (esMensajeError(mensaje)) {
@@ -69,22 +84,8 @@ function manejarMensajeEntrante(mensaje: MensajeServidor): void {
 // ===========================================================================
 
 const accionesLobby: AccionesLobby = {
-  cambiarNombre(nombre: string) {
-    store.fijarNombreBorrador(nombre);
-  },
-  cambiarDescripcion(descripcion: string) {
-    store.fijarDescripcionBorrador(descripcion);
-  },
-  sacarAliasAlAzar() {
-    const vista = store.obtener().vista;
-    const usados = new Set<string>();
-    for (const j of vista?.jugadores ?? []) {
-      usados.add(j.nombre);
-    }
-    for (const e of vista?.espectadores ?? []) {
-      usados.add(e.nombre);
-    }
-    const alias = elegirAliasAlAzar(usados);
+  entrarComoLadron() {
+    const alias = aliasDisponible();
     store.actualizar({
       aliasElegido: {
         nombre: alias.nombre,
@@ -93,27 +94,63 @@ const accionesLobby: AccionesLobby = {
         esManual: false,
       },
       nombreBorrador: alias.nombre,
+      descripcionBorrador: alias.descripcion ?? '',
+      modoUnirse: 'JUGADOR',
       error: null,
     });
+    const descripcion =
+      alias.descripcion !== undefined && alias.descripcion.trim().length > 0
+        ? alias.descripcion.trim()
+        : undefined;
+    conexion.enviar(mensajes.unirse(alias.nombre, 'JUGADOR', descripcion));
   },
-  activarAliasManual() {
+  entrarComoEspectador() {
+    store.actualizar({ modoUnirse: 'ESPECTADOR', error: null });
+    conexion.enviar(mensajes.unirseEspectador());
+  },
+  cambiarNombre(nombre: string) {
+    store.fijarNombreBorrador(nombre);
+  },
+  cambiarDescripcion(descripcion: string) {
+    store.fijarDescripcionBorrador(descripcion);
+  },
+  sacarAliasAlAzar() {
+    const alias = aliasDisponible();
     store.actualizar({
       aliasElegido: {
-        nombre: store.obtener().nombreBorrador.trim(),
-        descripcion: null,
+        nombre: alias.nombre,
+        descripcion: alias.descripcion,
+        categoria: alias.categoria,
+        esManual: false,
+      },
+      nombreBorrador: alias.nombre,
+      descripcionBorrador: alias.descripcion ?? '',
+      error: null,
+    });
+    if (jugadorRegistrado(store.obtener())) {
+      enviarCambioIdentidad(alias.nombre, alias.descripcion ?? undefined);
+    }
+  },
+  activarAliasManual() {
+    const estado = store.obtener();
+    const vista = estado.vista;
+    const yo = vista?.jugadores.find((j) => j.id === vista.perspectivaJugadorId);
+    const nombre = yo?.nombre ?? estado.nombreBorrador;
+    const desc = yo?.descripcion ?? estado.descripcionBorrador;
+    store.actualizar({
+      aliasElegido: {
+        nombre: nombre.trim(),
+        descripcion: desc ?? null,
         categoria: null,
         esManual: true,
       },
+      nombreBorrador: nombre,
+      descripcionBorrador: desc ?? '',
       error: null,
     });
   },
-  unirseComoJugador() {
-    if (!enviarUnirse('JUGADOR')) {
-      return;
-    }
-  },
-  unirseComoEspectador() {
-    if (!enviarUnirse('ESPECTADOR')) {
+  guardarIdentidad() {
+    if (!enviarCambioIdentidadDesdeEstado()) {
       return;
     }
   },
@@ -123,9 +160,36 @@ const accionesLobby: AccionesLobby = {
   expulsarMiembro(jugadorId: string) {
     conexion.enviar(mensajes.expulsarMiembro(jugadorId));
   },
+  volverAlMenu() {
+    if (participanteRegistrado(store.obtener())) {
+      conexion.enviar(mensajes.abandonar());
+    }
+    limpiarBorradorEntrada();
+  },
 };
 
-function enviarUnirse(modo: 'JUGADOR' | 'ESPECTADOR'): boolean {
+function aliasDisponible() {
+  const vista = store.obtener().vista;
+  const usados = new Set<string>();
+  for (const j of vista?.jugadores ?? []) {
+    usados.add(j.nombre);
+  }
+  for (const e of vista?.espectadores ?? []) {
+    usados.add(e.nombre);
+  }
+  return elegirAliasAlAzar(usados);
+}
+
+function enviarCambioIdentidad(nombre: string, descripcion?: string): void {
+  const desc =
+    descripcion !== undefined && descripcion.trim().length > 0
+      ? descripcion.trim()
+      : undefined;
+  store.actualizar({ error: null });
+  conexion.enviar(mensajes.cambiarAlias(nombre, desc));
+}
+
+function enviarCambioIdentidadDesdeEstado(): boolean {
   const estado = store.obtener();
   if (!tieneNombreValido(estado)) {
     store.recibirError(
@@ -137,10 +201,7 @@ function enviarUnirse(modo: 'JUGADOR' | 'ESPECTADOR'): boolean {
     store.recibirError(`La descripción no puede superar ${DESCRIPCION_MAX} caracteres.`);
     return false;
   }
-  const nombre = nombreParaUnirse(estado);
-  const descripcion = descripcionParaUnirse(estado);
-  store.actualizar({ modoUnirse: modo, error: null });
-  conexion.enviar(mensajes.unirse(nombre, modo, descripcion));
+  enviarCambioIdentidad(nombreParaUnirse(estado), descripcionParaUnirse(estado));
   return true;
 }
 

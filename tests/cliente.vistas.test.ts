@@ -290,6 +290,7 @@ describe('Vista de la mesa: showdown (8.2)', () => {
     const contenedor = nuevoContenedor();
     renderizarMesa(contenedor, estadoCliente(vistaShowdownCompleto()), ACCIONES_INERTES);
 
+    expect(contenedor.querySelector('.mesa-poker--showdown-resuelto')).not.toBeNull();
     expect(contenedor.querySelector('.showdown-mesa')).not.toBeNull();
     expect(contenedor.querySelector('.showdown-mesa__banner')).not.toBeNull();
     expect(contenedor.querySelectorAll('.showdown-mesa__fila').length).toBe(2);
@@ -298,6 +299,13 @@ describe('Vista de la mesa: showdown (8.2)', () => {
     expect(contenedor.querySelector('.showdown-resumen')).toBeNull();
     expect(contenedor.querySelector('#boton-resolver')).not.toBeNull();
     expect(contenedor.querySelector('#boton-revelar-showdown')).toBeNull();
+
+    const asientoLocal = contenedor.querySelector('.mesa-poker__local .asiento--local');
+    expect(asientoLocal).not.toBeNull();
+    expect(asientoLocal!.classList.contains('asiento--showdown-compacto')).toBe(true);
+    expect(asientoLocal!.querySelectorAll('.carta--mini').length).toBeGreaterThan(0);
+    expect(asientoLocal!.querySelector('.carta--hero')).toBeNull();
+    expect(asientoLocal!.querySelector('.asiento__cartas-etiq')).toBeNull();
   });
 
   it('ordenarPorFuerzaMano devuelve rangos verdes ascendentes por fuerza', () => {
@@ -580,15 +588,149 @@ describe('Ranking_de_Manos en orden (11.3)', () => {
 });
 
 const ACCIONES_LOBBY_INERTES: AccionesLobby = {
+  entrarComoLadron() {},
+  entrarComoEspectador() {},
   sacarAliasAlAzar() {},
   activarAliasManual() {},
   cambiarNombre() {},
   cambiarDescripcion() {},
-  unirseComoJugador() {},
-  unirseComoEspectador() {},
+  guardarIdentidad() {},
   iniciar() {},
   expulsarMiembro() {},
+  volverAlMenu() {},
 };
+
+describe('Vista de lobby: pantalla de título', () => {
+  it('muestra los botones Ladrón y Espectador cuando no hay registro', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: {
+          fase: 'LOBBY',
+          perspectivaJugadorId: 'local',
+          anfitrionId: null,
+          jugadores: [],
+          espectadores: [],
+          esEspectador: false,
+          golpeActual: null,
+          golpesJugados: 0,
+          bovedasDoradas: 0,
+          alarmasRojas: 0,
+          resultado: null,
+          historialGolpes: [],
+          ultimoResultadoGolpe: null,
+          ultimoShowdownResuelto: null,
+          ajustes: { sinKickers: true },
+        },
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.querySelector('.title-screen')).not.toBeNull();
+    expect(contenedor.querySelector('[data-accion="ENTRAR_LADRON"]')).not.toBeNull();
+    expect(contenedor.querySelector('[data-accion="ENTRAR_ESPECTADOR"]')).not.toBeNull();
+    expect(contenedor.querySelector('.title-screen__subtitle-panel')).not.toBeNull();
+    expect(contenedor.textContent).toContain('El casino duerme');
+    expect(contenedor.textContent).toContain('Entrar a la banda');
+    expect(contenedor.textContent).toContain('Mirar desde las sombras');
+    expect(contenedor.textContent).not.toContain('Un golpe perfecto se planea en silencio');
+    expect(contenedor.querySelector('.title-screen__title')).toBeNull();
+    contenedor.remove();
+  });
+});
+
+describe('Vista de lobby: volver al menú', () => {
+  function vistaLobbyJugador(perspectivaId: string): VistaPartida {
+    return {
+      fase: 'LOBBY',
+      perspectivaJugadorId: perspectivaId,
+      anfitrionId: 'j1',
+      jugadores: [{ id: perspectivaId, nombre: 'El Cerebro', conectado: true }],
+      espectadores: [],
+      esEspectador: false,
+      golpeActual: null,
+      golpesJugados: 0,
+      bovedasDoradas: 0,
+      alarmasRojas: 0,
+      resultado: null,
+      historialGolpes: [],
+      ultimoResultadoGolpe: null,
+      ultimoShowdownResuelto: null,
+      ajustes: { sinKickers: true },
+    };
+  }
+
+  function vistaLobbyEspectador(perspectivaId: string): VistaPartida {
+    return {
+      fase: 'LOBBY',
+      perspectivaJugadorId: perspectivaId,
+      anfitrionId: null,
+      jugadores: [],
+      espectadores: [{ id: perspectivaId, nombre: 'Espectador 1', conectado: true }],
+      esEspectador: true,
+      golpeActual: null,
+      golpesJugados: 0,
+      bovedasDoradas: 0,
+      alarmasRojas: 0,
+      resultado: null,
+      historialGolpes: [],
+      ultimoResultadoGolpe: null,
+      ultimoShowdownResuelto: null,
+      ajustes: { sinKickers: true },
+    };
+  }
+
+  it('muestra botón volver en la sala de planificación', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: vistaLobbyJugador('j1'),
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.querySelector('[data-accion="VOLVER_MENU"]')).not.toBeNull();
+    expect(contenedor.textContent).toContain('Volver al menú');
+    contenedor.remove();
+  });
+
+  it('muestra botón volver en la sala de espectador', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: vistaLobbyEspectador('obs1'),
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'ESPECTADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    expect(contenedor.querySelector('[data-accion="VOLVER_MENU"]')).not.toBeNull();
+    contenedor.remove();
+  });
+});
 
 describe('Vista de lobby: iniciar partida', () => {
   function vistaLobby(perspectivaId: string, anfitrionId: string): VistaPartida {
@@ -635,6 +777,29 @@ describe('Vista de lobby: iniciar partida', () => {
     const boton = contenedor.querySelector<HTMLButtonElement>('#boton-iniciar');
     expect(boton?.disabled).toBe(false);
     expect(contenedor.textContent).not.toContain('Solo el anfitrión puede dar el golpe');
+    expect(contenedor.querySelector('.lobby-room--planificacion')).not.toBeNull();
+    contenedor.remove();
+  });
+
+  it('muestra botón de expulsión para cualquier ladrón sobre otros miembros', () => {
+    const contenedor = document.createElement('div');
+    document.body.appendChild(contenedor);
+    renderizarLobby(
+      contenedor,
+      {
+        conexion: 'CONECTADO',
+        vista: vistaLobby('j2', 'j1'),
+        error: null,
+        nombreBorrador: '',
+        descripcionBorrador: '',
+        aliasElegido: null,
+        modoUnirse: 'JUGADOR',
+      },
+      ACCIONES_LOBBY_INERTES,
+    );
+
+    const expulsiones = contenedor.querySelectorAll('[data-accion="EXPULSAR"]');
+    expect(expulsiones.length).toBeGreaterThan(0);
     contenedor.remove();
   });
 

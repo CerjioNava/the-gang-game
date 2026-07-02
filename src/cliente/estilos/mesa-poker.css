@@ -353,6 +353,34 @@
   z-index: 3;
 }
 
+.mesa-poker--showdown-resuelto .mesa-poker__centro {
+  z-index: 6;
+}
+
+.mesa-poker--showdown-resuelto .mesa-poker__local {
+  z-index: 4;
+}
+
+.mesa-poker--showdown-resuelto .mesa-poker__local .asiento--showdown-compacto {
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  gap: 0.18rem;
+  font-size: 0.74rem;
+  z-index: 1;
+}
+
+.mesa-poker--showdown-resuelto .mesa-poker__local .asiento--showdown-compacto:hover {
+  box-shadow: none;
+}
+
+.mesa-poker--showdown-resuelto .mesa-poker__local .asiento__cartas {
+  overflow: visible;
+}
+
 .asiento--rival .asiento__nombre {
   max-width: 100%;
   overflow: visible;

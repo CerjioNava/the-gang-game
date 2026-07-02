@@ -13,7 +13,11 @@ import {
   indicadorColorFichaHtml,
   ranurasFichasJugadorHtml,
 } from '../atoms/fichaHtml';
-import { htmlAccionesShowdown, htmlCategoriaAsientoShowdown } from '../showdown';
+import {
+  htmlAccionesShowdown,
+  htmlCategoriaAsientoShowdown,
+  showdownMesaCompleto,
+} from '../showdown';
 import { urlMesa } from '../cartasSvg';
 import { estatusJugadorHtml } from '../estatusJugador';
 import { nombreConTooltipHtml } from '../tooltipNombre';
@@ -204,6 +208,7 @@ export function htmlToastResultado(vista: VistaPartida): string {
 
 export function htmlAsientos(ctx: MesaPokerContexto): string {
   const { vista, golpe, esEspectador, tengoFichaActiva, esShowdown } = ctx;
+  const showdownResuelto = esShowdown && showdownMesaCompleto(vista, golpe);
   const yoId = esEspectador ? null : vista.perspectivaJugadorId;
   const colorActivo = golpe.fichas.colorActivo;
   const posiciones = calcularPosicionesAsientos(vista.jugadores, yoId);
@@ -212,13 +217,31 @@ export function htmlAsientos(ctx: MesaPokerContexto): string {
 
   const htmlRivales = rivales
     .map((pos) =>
-      asientoHtml(pos, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador, golpe),
+      asientoHtml(
+        pos,
+        vista,
+        colorActivo,
+        tengoFichaActiva,
+        esShowdown,
+        esEspectador,
+        golpe,
+        showdownResuelto,
+      ),
     )
     .join('');
 
   const htmlLocal =
     local !== undefined
-      ? asientoHtml(local, vista, colorActivo, tengoFichaActiva, esShowdown, esEspectador, golpe)
+      ? asientoHtml(
+          local,
+          vista,
+          colorActivo,
+          tengoFichaActiva,
+          esShowdown,
+          esEspectador,
+          golpe,
+          showdownResuelto,
+        )
       : '';
 
   return `
@@ -235,20 +258,23 @@ function cartasAsientoHtml(
   esShowdown: boolean,
   golpe: VistaGolpe | null,
   esSiguienteRevelar: boolean,
+  showdownResuelto: boolean,
 ): string {
   if (jugador.bolsillo === null) {
     return '';
   }
-  const variante = esYo ? 'hero' : 'mini';
+  const usarCompacto = esYo && showdownResuelto;
+  const variante = usarCompacto || !esYo ? 'mini' : 'hero';
   if (jugador.bolsillo === BOLSILLO_OCULTO) {
     if (esShowdown) {
       return `<div class="asiento__cartas">${cartasOcultasVolteoHtml(variante)}</div>`;
     }
     return `<div class="asiento__cartas">${dorsoCartaHtml(variante)}${dorsoCartaHtml(variante)}</div>`;
   }
-  const etiqueta = esYo
-    ? '<span class="asiento__cartas-etiq">Cartas de Bolsillo</span>'
-    : '';
+  const etiqueta =
+    esYo && !usarCompacto
+      ? '<span class="asiento__cartas-etiq">Cartas de Bolsillo</span>'
+      : '';
   const cartas = esShowdown
     ? cartasVolteoHtml(jugador.bolsillo, variante, true)
     : cartasFilaHtml(jugador.bolsillo, variante);
@@ -266,6 +292,7 @@ function asientoHtml(
   esShowdown: boolean,
   esEspectador: boolean,
   golpe: VistaGolpe | null,
+  showdownResuelto: boolean,
 ): string {
   const { jugador, x, y, esYo } = pos;
   const yoId = vista.perspectivaJugadorId;
@@ -291,14 +318,16 @@ function asientoHtml(
     : '';
 
   const confirmBadge = !esShowdown && haConfirmado ? '<span class="asiento__confirmado" title="Listo">✓</span>' : '';
+  const usarCompacto = esYo && showdownResuelto;
   const claseYo = esYo ? ' asiento--yo' : '';
+  const claseCompacto = usarCompacto ? ' asiento--showdown-compacto' : '';
   const claseZona = pos.zona === 'local' ? ' asiento--local' : ' asiento--rival';
   const estiloPosicion =
     pos.zona === 'local' ? ` style="--asiento-x:${x}%;--asiento-y:${y}%"` : '';
 
   return `
     <article
-      class="asiento${claseYo}${claseZona}${claseRevelando}"${estiloPosicion}
+      class="asiento${claseYo}${claseCompacto}${claseZona}${claseRevelando}"${estiloPosicion}
       data-jugador-id="${escapar(jugador.id)}"
     >
       <div class="asiento__cabecera">
@@ -306,7 +335,7 @@ function asientoHtml(
         <span class="asiento__nombre">${nombreConTooltipHtml(jugador.nombre, jugador.descripcion)}${esYo ? ' <span class="asiento__tu">(tú)</span>' : ''}</span>
         ${confirmBadge}
       </div>
-      ${cartasAsientoHtml(jugador, esYo, esShowdown, golpe, esSiguienteRevelar)}
+      ${cartasAsientoHtml(jugador, esYo, esShowdown, golpe, esSiguienteRevelar, showdownResuelto)}
       ${ranurasFichas}
       ${botonIntercambio}
     </article>`;
@@ -322,6 +351,7 @@ export interface MesaPokerContexto {
 
 export function htmlMesaPoker(ctx: MesaPokerContexto): string {
   const { vista, golpe, esEspectador, tengoFichaActiva, esShowdown } = ctx;
+  const showdownResuelto = esShowdown && showdownMesaCompleto(vista, golpe);
   const colorActivo = golpe.fichas.colorActivo;
   const colorRonda = COLOR_DE_RONDA[golpe.ronda];
   const etiquetaRonda = ETIQUETA_RONDA[golpe.ronda];
@@ -335,7 +365,7 @@ export function htmlMesaPoker(ctx: MesaPokerContexto): string {
   let bannerResultado = htmlToastResultado(vista);
 
   return `
-    <section class="mesa-poker${esEspectador ? ' mesa-poker--espectador' : ''}">
+    <section class="mesa-poker${esEspectador ? ' mesa-poker--espectador' : ''}${showdownResuelto ? ' mesa-poker--showdown-resuelto' : ''}">
       <div class="mesa-poker__hud">
         ${marcadorCompactoHtml(vista)}
         <div class="mesa-poker__ronda">

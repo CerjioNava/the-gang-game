@@ -1,6 +1,6 @@
 # The Gang
 
-Juego cooperativo de póker para jugar en la red local de la oficina. Una **banda de ladrones profesionales** coopera para abrir **tres bóvedas** antes de que salten **tres alarmas**. El Anfitrión levanta un servidor en su PC y el resto del equipo se conecta desde el navegador, en la misma red.
+Juego cooperativo de póker para jugar en una red local. Una **banda de ladrones profesionales** coopera para abrir **tres bóvedas** antes de que salten **tres alarmas**. El Anfitrión levanta un servidor en su PC y el resto del equipo se conecta desde el navegador, en la misma red.
 
 Toda la interfaz está en español y mantiene la temática de un golpe perfecto. Esta versión implementa el **Modo Básico** para **3 a 6 jugadores**.
 
@@ -105,7 +105,7 @@ Si alguien pierde la conexión, puede volver a entrar con **el mismo alias** y r
 
 ## Nota de seguridad
 
-El servidor está pensado para una **LAN de confianza** (la oficina). No incluye autenticación fuerte: cualquier equipo de la misma red puede conectarse. Es aceptable para el uso previsto, pero no lo expongas a internet.
+El servidor está pensado para una **LAN de confianza**. No incluye autenticación fuerte: cualquier equipo de la misma red puede conectarse. Es aceptable para el uso previsto, pero no lo expongas a internet.
 
 ---
 

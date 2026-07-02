@@ -30,6 +30,7 @@ export const TipoMensajeCliente = {
   UNIRSE: 'UNIRSE',
   ABANDONAR: 'ABANDONAR',
   EXPULSAR: 'EXPULSAR',
+  CAMBIAR_ALIAS: 'CAMBIAR_ALIAS',
   INICIAR: 'INICIAR',
   CONFIGURAR_AJUSTES: 'CONFIGURAR_AJUSTES',
   AVANZAR: 'AVANZAR',
@@ -66,6 +67,17 @@ export const mensajes = {
       payload.descripcion = descripcion;
     }
     return { tipo: TipoMensajeCliente.UNIRSE, payload };
+  },
+  /** Espectador sin alias: el servidor asigna un nombre interno. */
+  unirseEspectador(): MensajeCliente {
+    return { tipo: TipoMensajeCliente.UNIRSE, payload: { rol: 'ESPECTADOR' as const } };
+  },
+  cambiarAlias(nombre: string, descripcion?: string): MensajeCliente {
+    const payload: { nombre: string; descripcion?: string } = { nombre };
+    if (descripcion !== undefined && descripcion.length > 0) {
+      payload.descripcion = descripcion;
+    }
+    return { tipo: TipoMensajeCliente.CAMBIAR_ALIAS, payload };
   },
   abandonar(): MensajeCliente {
     return { tipo: TipoMensajeCliente.ABANDONAR };

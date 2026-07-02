@@ -316,20 +316,20 @@ describe('Integración Coordinador + Difusor: estado de conexión visible en la 
     expect(banco.coordinador.obtenerEstado().fase).toBe('LOBBY');
   });
 
-  it('el anfitrión puede expulsar a un miembro desconectado', () => {
+  it('cualquier ladrón puede expulsar a un miembro desconectado', () => {
     const banco = montarBanco();
     unirTodos(banco);
 
     const expulsado = banco.jugadores[2]!;
     banco.gestor.desconectar(expulsado.conexionId);
 
-    const resultado = banco.enviar(banco.jugadores[0]!.jugadorId, {
+    const resultado = banco.enviar(banco.jugadores[1]!.jugadorId, {
       tipo: MensajeCliente.EXPULSAR,
       payload: { jugadorId: expulsado.jugadorId },
     });
     expect(resultado.clase).toBe('DIFUNDIR');
 
-    const vista = ultimaVista(banco.jugadores[0]!.conexion);
+    const vista = ultimaVista(banco.jugadores[1]!.conexion);
     expect(vista.jugadores).toHaveLength(2);
     expect(vista.jugadores.some((j) => j.id === expulsado.jugadorId)).toBe(false);
   });

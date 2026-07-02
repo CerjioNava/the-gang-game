@@ -41,6 +41,7 @@
 
 import { crearCoordinador, MensajeCliente, MensajeServidor } from './coordinador';
 import type { Coordinador, ContextoCoordinador, ResultadoCoordinador } from './coordinador';
+import { generarNombreEspectador } from '../dominio/lobby';
 import { crearDifusor } from './difusor';
 import type { Difusor } from './difusor';
 import { crearGestorSesiones } from './sesiones';
@@ -193,11 +194,32 @@ export function crearAplicacion(opciones: OpcionesAplicacion = {}): Aplicacion {
    */
   function manejarUnirse(conexion: ConexionCliente, mensaje: MensajeEntrante): void {
     const payload = mensaje.payload;
-    if (typeof payload !== 'object' || payload === null || typeof (payload as { nombre?: unknown }).nombre !== 'string') {
+    if (typeof payload !== 'object' || payload === null) {
+      enviarError(conexion, 'Falta un payload válido para unirte.', 'NOMBRE_INVALIDO');
+      return;
+    }
+
+    const rol =
+      (payload as { rol?: unknown }).rol === 'ESPECTADOR'
+        ? ('ESPECTADOR' as const)
+        : ('JUGADOR' as const);
+
+    let nombre: string | undefined;
+    if (
+      typeof (payload as { nombre?: unknown }).nombre === 'string' &&
+      (payload as { nombre: string }).nombre.trim().length > 0
+    ) {
+      nombre = (payload as { nombre: string }).nombre;
+    } else if (rol === 'ESPECTADOR') {
+      const estado = coordinador.obtenerEstado();
+      nombre = generarNombreEspectador(
+        estado.espectadores ?? [],
+        estado.jugadores,
+      );
+    } else {
       enviarError(conexion, 'Falta un nombre válido para unirte.', 'NOMBRE_INVALIDO');
       return;
     }
-    const nombre = (payload as { nombre: string }).nombre;
 
     const conexionResultado = gestor.conectar(nombre, conexion.id);
     if (!conexionResultado.ok) {

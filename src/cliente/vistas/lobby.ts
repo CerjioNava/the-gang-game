@@ -1,80 +1,134 @@
-// Vista de LOBBY del Cliente_Jugador.
-
-//
-
-// Permite a un Jugador unirse a la banda con un nombre (1..20 caracteres),
-
-// muestra la lista de miembros ya registrados y ofrece el botón para "Dar el
-
-// golpe" (iniciar la Partida), habilitado solo con 3..6 Jugadores conectados.
-
-//
-
-// Todos los textos están en español con temática de ladrones y usan los términos
-
-// del glosario (Golpe, Bóveda, Alarma, Ficha, Showdown).
-
-//
-
-// _Requirements: 2.1, 2.5, 11.1, 11.2_
-
-
+// Vista de LOBBY del Cliente_Jugador: pantalla de título, sala de planificación y vista espectador.
 
 import { espectadorRegistrado, jugadorRegistrado, type EstadoCliente } from '../estado';
-
 import { estatusJugadorHtml } from './estatusJugador';
 import { nombreConTooltipHtml } from './tooltipNombre';
-
 import {
-  enlazarSelectorAlias,
-  selectorAliasEspectadorHtml,
-  selectorAliasHtml,
-  type AccionesEntradaLobby,
-} from './selectorAlias';
-
-
+  enlazarPanelIdentidad,
+  panelIdentidadHtml,
+  type AccionesIdentidad,
+} from './identityPanel';
+import { enlazarTitleScreen, htmlTitleScreen, type AccionesTitleScreen } from './titleScreen';
 
 /** Acciones que la vista de Lobby puede solicitar a la capa de aplicación. */
-
-export interface AccionesLobby extends AccionesEntradaLobby {
-
-  /** Envía la intención de iniciar la Partida (dar el golpe). */
-
+export interface AccionesLobby extends AccionesTitleScreen, AccionesIdentidad {
   iniciar(): void;
-
-  /** Expulsa a un miembro de la banda (solo anfitrión). */
-
   expulsarMiembro(jugadorId: string): void;
-
+  volverAlMenu(): void;
 }
-
-
-
-/** Rango de Jugadores admitido por el Modo Básico. */
 
 const JUGADORES_MIN = 3;
-
 const JUGADORES_MAX = 6;
 
-
-
-/** Escapa texto para insertarlo de forma segura como contenido HTML. */
-
 function escapar(texto: string): string {
-
   return texto
-
     .replace(/&/g, '&amp;')
-
     .replace(/</g, '&lt;')
-
     .replace(/>/g, '&gt;')
-
     .replace(/"/g, '&quot;');
-
 }
 
+function esNombreEspectadorAutomatico(nombre: string): boolean {
+  return /^Espectador \d+$/.test(nombre);
+}
 
+function etiquetaEspectador(nombre: string): string {
+  return esNombreEspectadorAutomatico(nombre) ? 'En las sombras' : nombre;
+}
+
+function claseProgreso(total: number, todosConectados: boolean): string {
+  if (total < JUGADORES_MIN) {
+    return 'lobby-progress--insuficiente';
+  }
+  if (!todosConectados) {
+    return 'lobby-progress--desconectados';
+  }
+  return 'lobby-progress--listo';
+}
+
+function htmlProgreso(total: number, todosConectados: boolean): string {
+  const porcentaje = Math.min(100, Math.round((total / JUGADORES_MAX) * 100));
+  const clase = claseProgreso(total, todosConectados);
+  return `
+    <div
+      class="lobby-progress ${clase}"
+      role="progressbar"
+      aria-valuenow="${total}"
+      aria-valuemin="0"
+      aria-valuemax="${JUGADORES_MAX}"
+      aria-label="Ladrones en la banda"
+    >
+      <div class="lobby-progress__track">
+        <div class="lobby-progress__fill" style="width: ${porcentaje}%"></div>
+      </div>
+      <span class="lobby-progress__label">${total}/${JUGADORES_MAX}</span>
+    </div>`;
+}
+
+function htmlTarjetaMiembro(
+  id: string,
+  nombre: string,
+  descripcion: string | undefined,
+  conectado: boolean,
+  esTu: boolean,
+  puedeExpulsar: boolean,
+  esEspectador = false,
+): string {
+  const etiqueta = esTu ? ' <span class="lobby__tu">(tú)</span>' : '';
+  const nombreVisible = esEspectador ? etiquetaEspectador(nombre) : nombre;
+  const tooltipDesc = esEspectador && esNombreEspectadorAutomatico(nombre) ? undefined : descripcion;
+  const botonExpulsar = puedeExpulsar
+    ? `<button
+         type="button"
+         class="boton boton--icono lobby__expulsar"
+         data-accion="EXPULSAR"
+         data-jugador="${escapar(id)}"
+         aria-label="Expulsar a ${escapar(nombreVisible)}"
+         title="Expulsar"
+       >✕</button>`
+    : '';
+
+  return `<li class="crew-card ${esEspectador ? 'crew-card--espectador' : ''}">
+    <span class="crew-card__info">${estatusJugadorHtml(conectado)}<span class="crew-card__alias">${nombreConTooltipHtml(nombreVisible, tooltipDesc)}${etiqueta}</span></span>
+    ${botonExpulsar}
+  </li>`;
+}
+
+function enlazarExpulsiones(contenedor: HTMLElement, acciones: AccionesLobby): void {
+  contenedor.querySelectorAll<HTMLButtonElement>('button[data-accion="EXPULSAR"]').forEach(
+    (boton) => {
+      boton.addEventListener('click', () => {
+        const jugadorId = boton.dataset['jugador'];
+        if (jugadorId !== undefined && jugadorId.length > 0) {
+          acciones.expulsarMiembro(jugadorId);
+        }
+      });
+    },
+  );
+}
+
+function enlazarIniciar(contenedor: HTMLElement, acciones: AccionesLobby): void {
+  contenedor.querySelector<HTMLButtonElement>('#boton-iniciar')?.addEventListener('click', () => {
+    acciones.iniciar();
+  });
+}
+
+function htmlBotonVolverMenu(): string {
+  return `<button
+    type="button"
+    class="boton boton--secundario lobby-room__volver"
+    data-accion="VOLVER_MENU"
+    aria-label="Volver al menú de inicio"
+  >← Volver al menú</button>`;
+}
+
+function enlazarVolverMenu(contenedor: HTMLElement, acciones: AccionesLobby): void {
+  contenedor
+    .querySelector<HTMLButtonElement>('[data-accion="VOLVER_MENU"]')
+    ?.addEventListener('click', () => {
+      acciones.volverAlMenu();
+    });
+}
 
 /** Pantalla para unirse como espectador con la Partida ya en curso. */
 export function renderizarEntradaEspectador(
@@ -89,307 +143,209 @@ export function renderizarEntradaEspectador(
       : 'La Partida está en marcha. Puedes observar a la banda sin participar en el juego.';
 
   contenedor.innerHTML = `
-    <section class="lobby lobby--espectador lobby--horizontal">
-      <header class="lobby__cabecera">
-        <h2>Observar el golpe</h2>
-        <p class="lobby__intro">${intro}</p>
+    <section class="lobby-room lobby-room--espectador-entrada">
+      <header class="lobby-room__cabecera">
+        <h2 class="lobby-room__titulo">Observar el golpe</h2>
+        <p class="lobby-room__intro">${intro}</p>
       </header>
-      <div class="lobby__panel-entrada">
-        ${selectorAliasEspectadorHtml(estado)}
+      <div class="lobby-room__panel">
+        <p class="lobby-room__pasivo">No necesitas alias ni credencial: entra directo a las sombras.</p>
+        <button type="button" class="boton boton--title boton--title-espectador" data-accion="ENTRAR_ESPECTADOR">
+          <span class="title-screen__btn-label">Observar ahora</span>
+          <span class="title-screen__btn-hint">Mirar desde las sombras</span>
+        </button>
       </div>
     </section>
   `;
 
-  enlazarSelectorAlias(contenedor, estado, acciones);
+  contenedor
+    .querySelector<HTMLButtonElement>('[data-accion="ENTRAR_ESPECTADOR"]')
+    ?.addEventListener('click', () => {
+      acciones.entrarComoEspectador();
+    });
 }
 
-
-
-/**
-
- * Renderiza la vista de Lobby dentro de `contenedor` y conecta los eventos a las
-
- * `acciones`. Se vuelve a invocar en cada cambio de estado relevante.
-
- */
-
-export function renderizarLobby(
-
+function renderizarTitleScreen(
   contenedor: HTMLElement,
-
-  estado: EstadoCliente,
-
   acciones: AccionesLobby,
-
 ): void {
+  contenedor.innerHTML = htmlTitleScreen();
+  enlazarTitleScreen(contenedor, acciones);
+}
 
+function renderizarSalaEspectador(
+  contenedor: HTMLElement,
+  estado: EstadoCliente,
+  acciones: AccionesLobby,
+): void {
   const vista = estado.vista;
-
   const jugadores = vista?.jugadores ?? [];
-
   const espectadores = vista?.espectadores ?? [];
-
-  const esJugador = jugadorRegistrado(estado);
-
-  const esEspectador = espectadorRegistrado(estado);
-
-  const registrado = esJugador || esEspectador;
-
+  const perspectivaId = vista?.perspectivaJugadorId ?? '';
+  const esJugadorLocal = jugadorRegistrado(estado);
   const total = jugadores.length;
-
   const todosConectados = jugadores.every((j) => j.conectado);
 
-  const aforoValido = total >= JUGADORES_MIN && total <= JUGADORES_MAX;
-
-  const puedeIniciar = aforoValido && todosConectados;
-
-  const esAnfitrion = vista?.anfitrionId != null && vista.perspectivaJugadorId === vista.anfitrionId;
-
-  const hayDesconectados = jugadores.some((j) => !j.conectado);
-
-
-
   const listaHtml =
-
     total === 0
-
-      ? '<li class="lobby__vacio">Aún no hay nadie en el escondite. Sé el primero en unirte.</li>'
-
+      ? '<li class="lobby__vacio">Aún no hay nadie en el escondite.</li>'
       : jugadores
-
           .map((j) => {
-
-            const esTu = vista !== null && j.id === vista.perspectivaJugadorId;
-
-            const etiqueta = esTu ? ' <span class="lobby__tu">(tú)</span>' : '';
-
-            const botonExpulsar =
-
-              esAnfitrion && !esTu
-
-                ? `<button
-
-                     type="button"
-
-                     class="boton boton--secundario lobby__expulsar"
-
-                     data-accion="EXPULSAR"
-
-                     data-jugador="${escapar(j.id)}"
-
-                   >Expulsar</button>`
-
-                : '';
-
-            return `<li class="lobby__tarjeta-miembro lobby__jugador">
-
-              <span class="lobby__jugador-info">${estatusJugadorHtml(j.conectado)}<span class="lobby__alias">${nombreConTooltipHtml(j.nombre, j.descripcion)}${etiqueta}</span></span>
-
-              ${botonExpulsar}
-
-            </li>`;
-
+            const esTu = j.id === perspectivaId;
+            const puedeExpulsar = esJugadorLocal && !esTu;
+            return htmlTarjetaMiembro(j.id, j.nombre, j.descripcion, j.conectado, esTu, puedeExpulsar);
           })
-
           .join('');
-
-
 
   const listaEspectadoresHtml =
-
     espectadores.length === 0
-
       ? '<li class="lobby__vacio">Nadie observa todavía.</li>'
-
       : espectadores
-
           .map((e) => {
-
-            const esTu = vista !== null && e.id === vista.perspectivaJugadorId;
-
-            const etiqueta = esTu ? ' <span class="lobby__tu">(tú)</span>' : '';
-
-            const botonExpulsar =
-
-              esAnfitrion && !esTu
-
-                ? `<button
-
-                     type="button"
-
-                     class="boton boton--secundario lobby__expulsar"
-
-                     data-accion="EXPULSAR"
-
-                     data-jugador="${escapar(e.id)}"
-
-                   >Expulsar</button>`
-
-                : '';
-
-            return `<li class="lobby__tarjeta-miembro lobby__jugador lobby__jugador--espectador">
-
-              <span class="lobby__jugador-info">${estatusJugadorHtml(e.conectado)}<span class="lobby__alias">${nombreConTooltipHtml(e.nombre, e.descripcion)}${etiqueta}</span></span>
-
-              ${botonExpulsar}
-
-            </li>`;
-
+            const esTu = e.id === perspectivaId;
+            const puedeExpulsar = esJugadorLocal && !esTu;
+            return htmlTarjetaMiembro(
+              e.id,
+              e.nombre,
+              e.descripcion,
+              e.conectado,
+              esTu,
+              puedeExpulsar,
+              true,
+            );
           })
-
           .join('');
 
-
-
-  let avisoInicio = '';
-
-  if (!aforoValido && registrado) {
-
-    avisoInicio = `<p class="lobby__aviso">Hacen falta al menos ${JUGADORES_MIN} ladrones para dar el golpe.</p>`;
-
-  } else if (hayDesconectados && registrado) {
-
-    avisoInicio =
-
-      '<p class="lobby__aviso">Todos los miembros deben estar activos para dar el golpe.</p>';
-
-  }
-
-
-
   contenedor.innerHTML = `
-
-    <section class="lobby lobby--horizontal">
-
-      <header class="lobby__cabecera">
-
-        <h2>El escondite</h2>
-
-        <p class="lobby__intro">
-
-          Reúne a tu banda para planear el Golpe. Necesitáis entre
-
-          ${JUGADORES_MIN} y ${JUGADORES_MAX} ladrones para asaltar la Bóveda.
-
-        </p>
-
+    <section class="lobby-room lobby-room--espectador">
+      <header class="lobby-room__cabecera">
+        ${htmlBotonVolverMenu()}
+        <h2 class="lobby-room__titulo">Observando el escondite</h2>
+        <p class="lobby-room__intro">Estás en las sombras. La banda planea el golpe mientras tú vigilas.</p>
       </header>
-
-
-
-      <div class="lobby__panel-entrada">
-
-        ${
-
-          esEspectador
-
-            ? `<p class="lobby__estado-unido lobby__estado-espectador">Estás observando como espectador. Esperando a que dé comienzo el golpe…</p>`
-
-            : esJugador
-
-            ? `<p class="lobby__estado-unido">Estás dentro de la banda. Esperando a más miembros…</p>`
-
-            : `
-
-          ${selectorAliasHtml(estado)}
-
-          `
-
-        }
-
-
-
-        <button
-
-          type="button"
-
-          id="boton-iniciar"
-
-          class="boton boton--golpe"
-
-          ${puedeIniciar && esJugador ? '' : 'disabled'}
-
-        >
-
-          Dar el golpe
-
-        </button>
-
-        ${avisoInicio}
-
-      </div>
-
-
-
-      <div class="lobby__panel-banda">
-
-        <div class="lobby__miembros">
-
-          <h3>Miembros de la banda (${total}/${JUGADORES_MAX})</h3>
-
-          <ul class="lobby__lista-miembros">${listaHtml}</ul>
-
+      ${htmlProgreso(total, todosConectados)}
+      <div class="lobby-room__grid">
+        <div class="lobby-room__columna">
+          <h3 class="lobby-room__seccion">Miembros de la banda</h3>
+          <ul class="lobby-room__lista">${listaHtml}</ul>
         </div>
-
-
-
-        <div class="lobby__espectadores">
-
-          <h3>Espectadores (${espectadores.length})</h3>
-
-          <ul class="lobby__lista-miembros">${listaEspectadoresHtml}</ul>
-
+        <div class="lobby-room__columna">
+          <h3 class="lobby-room__seccion">Espectadores (${espectadores.length})</h3>
+          <ul class="lobby-room__lista">${listaEspectadoresHtml}</ul>
         </div>
-
       </div>
-
     </section>
-
   `;
 
-
-
-  // Enlaces de eventos.
-
-  if (!registrado) {
-
-    enlazarSelectorAlias(contenedor, estado, acciones);
-
-  }
-
-
-
-  const botonIniciar = contenedor.querySelector<HTMLButtonElement>('#boton-iniciar');
-
-  botonIniciar?.addEventListener('click', () => {
-
-    acciones.iniciar();
-
-  });
-
-
-
-  contenedor.querySelectorAll<HTMLButtonElement>('button[data-accion="EXPULSAR"]').forEach(
-
-    (boton) => {
-
-      boton.addEventListener('click', () => {
-
-        const jugadorId = boton.dataset['jugador'];
-
-        if (jugadorId !== undefined && jugadorId.length > 0) {
-
-          acciones.expulsarMiembro(jugadorId);
-
-        }
-
-      });
-
-    },
-
-  );
-
-
-
+  enlazarVolverMenu(contenedor, acciones);
+  enlazarExpulsiones(contenedor, acciones);
 }
 
+function renderizarSalaPlanificacion(
+  contenedor: HTMLElement,
+  estado: EstadoCliente,
+  acciones: AccionesLobby,
+): void {
+  const vista = estado.vista;
+  const jugadores = vista?.jugadores ?? [];
+  const espectadores = vista?.espectadores ?? [];
+  const perspectivaId = vista?.perspectivaJugadorId ?? '';
+  const yo = jugadores.find((j) => j.id === perspectivaId);
+  const total = jugadores.length;
+  const todosConectados = jugadores.every((j) => j.conectado);
+  const aforoValido = total >= JUGADORES_MIN && total <= JUGADORES_MAX;
+  const puedeIniciar = aforoValido && todosConectados;
+  const hayDesconectados = jugadores.some((j) => !j.conectado);
+
+  const listaHtml = jugadores
+    .map((j) => {
+      const esTu = j.id === perspectivaId;
+      const puedeExpulsar = !esTu;
+      return htmlTarjetaMiembro(j.id, j.nombre, j.descripcion, j.conectado, esTu, puedeExpulsar);
+    })
+    .join('');
+
+  const listaEspectadoresHtml =
+    espectadores.length === 0
+      ? '<li class="lobby__vacio">Nadie observa todavía.</li>'
+      : espectadores
+          .map((e) =>
+            htmlTarjetaMiembro(e.id, e.nombre, e.descripcion, e.conectado, false, true, true),
+          )
+          .join('');
+
+  let avisoInicio = '';
+  if (!aforoValido) {
+    avisoInicio = `<p class="lobby-room__aviso">Hacen falta al menos ${JUGADORES_MIN} ladrones para dar el golpe.</p>`;
+  } else if (hayDesconectados) {
+    avisoInicio =
+      '<p class="lobby-room__aviso">Todos los miembros deben estar activos para dar el golpe.</p>';
+  }
+
+  const nombreActual = yo?.nombre ?? estado.nombreBorrador;
+  const descActual = yo?.descripcion ?? estado.descripcionBorrador;
+
+  contenedor.innerHTML = `
+    <section class="lobby-room lobby-room--planificacion">
+      <header class="lobby-room__cabecera">
+        ${htmlBotonVolverMenu()}
+        <h2 class="lobby-room__titulo">Sala de planificación</h2>
+        <p class="lobby-room__intro">
+          Reúne a tu banda (${JUGADORES_MIN}–${JUGADORES_MAX} ladrones) antes de asaltar la Bóveda.
+        </p>
+      </header>
+      ${htmlProgreso(total, todosConectados)}
+      <div class="lobby-room__grid lobby-room__grid--planificacion">
+        <div class="lobby-room__columna lobby-room__columna--identidad">
+          ${panelIdentidadHtml(estado, nombreActual, descActual)}
+          <button
+            type="button"
+            id="boton-iniciar"
+            class="boton boton--golpe lobby-room__iniciar"
+            ${puedeIniciar ? '' : 'disabled'}
+          >
+            Dar el golpe
+          </button>
+          ${avisoInicio}
+        </div>
+        <div class="lobby-room__columna">
+          <h3 class="lobby-room__seccion">La banda</h3>
+          <ul class="lobby-room__lista">${listaHtml || '<li class="lobby__vacio">Esperando ladrones…</li>'}</ul>
+          <h3 class="lobby-room__seccion">Espectadores (${espectadores.length})</h3>
+          <ul class="lobby-room__lista">${listaEspectadoresHtml}</ul>
+        </div>
+      </div>
+    </section>
+  `;
+
+  enlazarVolverMenu(contenedor, acciones);
+  enlazarPanelIdentidad(contenedor, estado, acciones);
+  enlazarIniciar(contenedor, acciones);
+  enlazarExpulsiones(contenedor, acciones);
+}
+
+/**
+ * Renderiza la vista de Lobby dentro de `contenedor` y conecta los eventos a las
+ * `acciones`. Se vuelve a invocar en cada cambio de estado relevante.
+ */
+export function renderizarLobby(
+  contenedor: HTMLElement,
+  estado: EstadoCliente,
+  acciones: AccionesLobby,
+): void {
+  const esJugador = jugadorRegistrado(estado);
+  const esEspectador = espectadorRegistrado(estado);
+  const registrado = esJugador || esEspectador;
+
+  if (!registrado) {
+    renderizarTitleScreen(contenedor, acciones);
+    return;
+  }
+
+  if (esEspectador) {
+    renderizarSalaEspectador(contenedor, estado, acciones);
+    return;
+  }
+
+  renderizarSalaPlanificacion(contenedor, estado, acciones);
+}

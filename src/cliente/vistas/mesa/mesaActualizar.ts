@@ -213,6 +213,9 @@ function aplicarParches(
     asientosEl.innerHTML = htmlAsientos(ctx);
   }
 
+  const showdownResuelto = ctx.esShowdown && showdownMesaCompleto(vista, golpe);
+  mesa.classList.toggle('mesa-poker--showdown-resuelto', showdownResuelto);
+
   actualizarOverlay(contenedor);
   actualizarAcciones(contenedor, ctx);
 

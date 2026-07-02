@@ -63,7 +63,12 @@ export function validarNombre(
   nombre: string,
   jugadores: readonly Jugador[],
   espectadores: readonly Espectador[] = [],
+  excluirJugadorId?: string,
 ): ErrorJuego | null {
+  const jugadoresParaUnicidad =
+    excluirJugadorId !== undefined
+      ? jugadores.filter((j) => j.id !== excluirJugadorId)
+      : jugadores;
   if (typeof nombre !== 'string' || nombre.trim().length === 0) {
     return {
       codigo: 'NOMBRE_INVALIDO',
@@ -81,7 +86,7 @@ export function validarNombre(
     };
   }
 
-  if (jugadores.some((j) => j.nombre === nombre)) {
+  if (jugadoresParaUnicidad.some((j) => j.nombre === nombre)) {
     return {
       codigo: 'NOMBRE_INVALIDO',
       mensaje: 'Ese alias ya lo usa otro miembro de la banda.',
@@ -236,6 +241,72 @@ export function registrarEspectador(
     ...(descripcionNorm !== undefined ? { descripcion: descripcionNorm } : {}),
   };
   return { ok: true, espectadores: [...espectadores, nuevo] };
+}
+
+/**
+ * Genera un nombre interno único para un espectador sin alias visible.
+ */
+export function generarNombreEspectador(
+  espectadores: readonly Espectador[],
+  jugadores: readonly Jugador[],
+): string {
+  for (let indice = 1; indice <= MAX_ESPECTADORES + 1; indice += 1) {
+    const candidato = `Espectador ${indice}`;
+    if (validarNombre(candidato, jugadores, espectadores) === null) {
+      return candidato;
+    }
+  }
+  return `Espectador ${Date.now()}`;
+}
+
+/**
+ * Actualiza alias y descripción de un jugador ya registrado en LOBBY.
+ */
+export function actualizarIdentidadJugador(
+  jugadores: readonly Jugador[],
+  espectadores: readonly Espectador[],
+  jugadorId: string,
+  nombre: string,
+  descripcion?: string,
+): ResultadoRegistro {
+  const indice = jugadores.findIndex((j) => j.id === jugadorId);
+  if (indice === -1) {
+    return {
+      ok: false,
+      error: {
+        codigo: 'ACCION_NO_PERMITIDA',
+        mensaje: 'No estás registrado como miembro de la banda.',
+      },
+    };
+  }
+
+  const errorNombre = validarNombre(nombre, jugadores, espectadores, jugadorId);
+  if (errorNombre !== null) {
+    return { ok: false, error: errorNombre };
+  }
+
+  const descripcionNorm = normalizarDescripcion(descripcion);
+  const errorDescripcion = validarDescripcion(descripcionNorm);
+  if (errorDescripcion !== null) {
+    return { ok: false, error: errorDescripcion };
+  }
+
+  const actualizados = jugadores.map((jugador) => {
+    if (jugador.id !== jugadorId) {
+      return jugador;
+    }
+    const actualizado: Jugador = {
+      ...jugador,
+      nombre,
+    };
+    if (descripcionNorm !== undefined) {
+      return { ...actualizado, descripcion: descripcionNorm };
+    }
+    const { descripcion: _omitida, ...sinDescripcion } = actualizado;
+    return sinDescripcion;
+  });
+
+  return { ok: true, jugadores: actualizados };
 }
 
 /**

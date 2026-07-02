@@ -40,6 +40,8 @@ import {
 import {
   abandonarEspectador,
   abandonarJugador,
+  actualizarIdentidadJugador,
+  generarNombreEspectador,
   registrarEspectador,
   registrarJugador,
   validarInicioConConectividad,
@@ -77,8 +79,10 @@ export const MensajeCliente = {
   UNIRSE: 'UNIRSE',
   /** Abandonar el Lobby antes del inicio. payload: ninguno. */
   ABANDONAR: 'ABANDONAR',
-  /** Expulsar a un miembro de la banda (solo anfitrión, solo en LOBBY). payload: `{ jugadorId: string }`. */
+  /** Expulsar a un miembro (solo en LOBBY). payload: `{ jugadorId: string }`. */
   EXPULSAR: 'EXPULSAR',
+  /** Cambiar alias/descripción en LOBBY. payload: `{ nombre: string, descripcion?: string }`. */
+  CAMBIAR_ALIAS: 'CAMBIAR_ALIAS',
   /** Iniciar la Partida (requiere 3..6 Jugadores conectados). payload: ninguno. */
   INICIAR: 'INICIAR',
   /** Configurar ajustes del modo de juego (solo en LOBBY). payload: `{ sinKickers: boolean }`. */
@@ -307,6 +311,13 @@ export class Coordinador {
         }
         return this.#expulsar(jugadorId, mensaje.payload);
       }
+      case MensajeCliente.CAMBIAR_ALIAS: {
+        const rechazoAlias = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoAlias !== null) {
+          return rechazoAlias;
+        }
+        return this.#cambiarAlias(jugadorId, mensaje.payload);
+      }
       case MensajeCliente.INICIAR: {
         const rechazoIniciar = this.#rechazarSiEspectador(jugadorId);
         if (rechazoIniciar !== null) {
@@ -418,10 +429,10 @@ export class Coordinador {
         },
       };
     }
-    if (!esObjeto(payload) || typeof payload['nombre'] !== 'string') {
+    if (!esObjeto(payload)) {
       return {
         clase: 'IGNORADO',
-        error: errorGenerico('Falta un nombre válido para unirse.'),
+        error: errorGenerico('Falta un payload válido para unirse.'),
       };
     }
 
@@ -429,7 +440,19 @@ export class Coordinador {
       payload['rol'] === 'ESPECTADOR' ? ('ESPECTADOR' as const) : ('JUGADOR' as const);
 
     if (rol === 'ESPECTADOR') {
-      return this.#unirseEspectador(jugadorId, payload['nombre'], payload['descripcion']);
+      const espectadores = this.#estado.espectadores ?? [];
+      const nombre =
+        typeof payload['nombre'] === 'string' && payload['nombre'].trim().length > 0
+          ? payload['nombre']
+          : generarNombreEspectador(espectadores, this.#estado.jugadores);
+      return this.#unirseEspectador(jugadorId, nombre, payload['descripcion']);
+    }
+
+    if (typeof payload['nombre'] !== 'string') {
+      return {
+        clase: 'IGNORADO',
+        error: errorGenerico('Falta un nombre válido para unirse.'),
+      };
     }
 
     if (this.#estado.fase !== 'LOBBY') {
@@ -528,7 +551,7 @@ export class Coordinador {
     return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [jugadorId] };
   }
 
-  #expulsar(anfitrionId: string, payload: unknown): ResultadoCoordinador {
+  #expulsar(solicitanteId: string, payload: unknown): ResultadoCoordinador {
     if (this.#estado.fase !== 'LOBBY') {
       return {
         clase: 'ERROR',
@@ -538,12 +561,13 @@ export class Coordinador {
         },
       };
     }
-    if (this.#anfitrionId === null || anfitrionId !== this.#anfitrionId) {
+    const esJugador = this.#estado.jugadores.some((j) => j.id === solicitanteId);
+    if (!esJugador) {
       return {
         clase: 'ERROR',
         error: {
           codigo: 'ACCION_NO_PERMITIDA',
-          mensaje: 'Solo el anfitrión puede expulsar miembros de la banda.',
+          mensaje: 'Solo los ladrones de la banda pueden expulsar miembros.',
         },
       };
     }
@@ -562,7 +586,7 @@ export class Coordinador {
       return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [objetivoId] };
     }
 
-    if (objetivoId === anfitrionId) {
+    if (objetivoId === solicitanteId) {
       return {
         clase: 'ERROR',
         error: {
@@ -582,6 +606,39 @@ export class Coordinador {
 
     this.#estado = { ...this.#estado, jugadores };
     return { clase: 'DIFUNDIR', eventos: [], sesionesARetirar: [objetivoId] };
+  }
+
+  #cambiarAlias(jugadorId: string, payload: unknown): ResultadoCoordinador {
+    if (this.#estado.fase !== 'LOBBY') {
+      return {
+        clase: 'ERROR',
+        error: {
+          codigo: 'ACCION_NO_PERMITIDA',
+          mensaje: 'Solo puedes cambiar tu alias antes de dar el golpe.',
+        },
+      };
+    }
+    if (!esObjeto(payload) || typeof payload['nombre'] !== 'string') {
+      return {
+        clase: 'IGNORADO',
+        error: errorGenerico('Falta un alias válido para actualizar.'),
+      };
+    }
+    const descripcion =
+      typeof payload['descripcion'] === 'string' ? payload['descripcion'] : undefined;
+    const espectadores = this.#estado.espectadores ?? [];
+    const resultado = actualizarIdentidadJugador(
+      this.#estado.jugadores,
+      espectadores,
+      jugadorId,
+      payload['nombre'],
+      descripcion,
+    );
+    if (!resultado.ok) {
+      return { clase: 'ERROR', error: resultado.error };
+    }
+    this.#estado = { ...this.#estado, jugadores: resultado.jugadores };
+    return { clase: 'DIFUNDIR', eventos: [] };
   }
 
   #configurarAjustes(payload: unknown): ResultadoCoordinador {
