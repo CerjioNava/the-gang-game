@@ -38,6 +38,7 @@ function vistaJugadorRegistrado(): VistaPartida {
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
     terminacionPorDesconexion: null,
+    historialChat: [],
   };
 }
 

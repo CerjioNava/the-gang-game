@@ -19,7 +19,7 @@ import type { VistaPartida } from '../dominio/proyeccion';
 // Re-exportamos los tipos de vista que el cliente consume, para que el resto de
 // módulos del cliente importen desde un único punto.
 export type { VistaPartida, JugadorVisible, EspectadorVisible } from '../dominio/proyeccion';
-export type { Carta, Ficha, ColorFicha, Palo } from '../dominio/modelos';
+export type { Carta, Ficha, ColorFicha, Palo, MensajeChat } from '../dominio/modelos';
 
 // ===========================================================================
 // Mensajes ENTRANTES (cliente → servidor)
@@ -41,6 +41,7 @@ export const TipoMensajeCliente = {
   INTERCAMBIAR_CENTRO: 'INTERCAMBIAR_CENTRO',
   INTERCAMBIAR_JUGADOR: 'INTERCAMBIAR_JUGADOR',
   SOLICITAR_CARTAS: 'SOLICITAR_CARTAS',
+  ENVIAR_CHAT: 'ENVIAR_CHAT',
 } as const;
 
 /** Mensaje que el cliente envía al Servidor_Local (formato { tipo, payload }). */
@@ -122,6 +123,12 @@ export const mensajes = {
     return {
       tipo: TipoMensajeCliente.SOLICITAR_CARTAS,
       payload: { objetivoId },
+    };
+  },
+  enviarChat(texto: string): MensajeCliente {
+    return {
+      tipo: TipoMensajeCliente.ENVIAR_CHAT,
+      payload: { texto },
     };
   },
 } as const;

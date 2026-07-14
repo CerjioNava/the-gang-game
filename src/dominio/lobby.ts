@@ -421,6 +421,7 @@ export function volverAlLobby(estado: EstadoPartida): EstadoPartida {
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
     terminacionPorDesconexion: null,
+    historialChat: [],
   };
 }
 

@@ -687,12 +687,14 @@
   min-width: 0;
 }
 
-.mesa-poker__ranking-slot {
+.mesa-poker__ranking-slot,
+.mesa-poker__chat-slot {
   display: flex;
   flex-shrink: 0;
 }
 
-.mesa-poker__ranking-slot .ranking-boton {
+.mesa-poker__ranking-slot .ranking-boton,
+.mesa-poker__chat-slot .chat-boton {
   position: static;
   margin: 0;
 }

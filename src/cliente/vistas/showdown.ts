@@ -520,14 +520,11 @@ export function renderizarResultado(
     claseEstado = "";
   }
 
-  const yoId = vista.perspectivaJugadorId;
   const botonTerminar =
-    acciones !== undefined && !vista.esEspectador && vista.anfitrionId === yoId
-      ? `<div class="resultado__acciones">
-          <button type="button" id="boton-terminar-partida" class="boton boton--alias">
+    acciones !== undefined && !vista.esEspectador
+      ? `<button type="button" id="boton-terminar-partida" class="boton boton--alias">
             Terminar partida
-          </button>
-        </div>`
+          </button>`
       : "";
 
   contenedor.innerHTML = `
@@ -544,7 +541,10 @@ export function renderizarResultado(
           <span class="resultado__valor resultado__valor--alarma">${vista.alarmasRojas} / 3</span>
         </div>
       </div>
-      ${botonTerminar}
+      <div class="resultado__acciones">
+        <div class="resultado__chat-slot" id="pantalla-fin-chat"></div>
+        ${botonTerminar}
+      </div>
     </section>`;
 
   contenedor

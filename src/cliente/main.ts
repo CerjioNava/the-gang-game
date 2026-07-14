@@ -32,6 +32,7 @@ import { type AccionesMesa } from "./vistas/mesa";
 import { montarRanking } from "./vistas/ranking";
 import type { Ficha } from "./protocolo";
 import { montarPanelHistorial } from "./vistas/mesa/historialGolpes";
+import { montarPanelChat } from "./vistas/mesa/chat";
 import {
   cargarCredencial,
   limpiarCredencial,
@@ -281,6 +282,11 @@ const accionesMesa: AccionesMesa = {
   },
 };
 
+/** Envía un mensaje al chat de la Partida. */
+function enviarChat(texto: string): void {
+  conexion.enviar(mensajes.enviarChat(texto));
+}
+
 let temporizadorTick: ReturnType<typeof setInterval> | null = null;
 
 function programarTickTemporizador(vista: EstadoCliente["vista"]): void {
@@ -322,6 +328,21 @@ function montarRankingEnFooter(estado: EstadoCliente): void {
   montarRanking(slot);
 }
 
+/** Monta el panel de chat con el slot correspondiente a la fase actual. */
+function montarChatEnFooter(estado: EstadoCliente): void {
+  const vista = estado.vista;
+  if (vista === null) {
+    return;
+  }
+  let slot: HTMLElement | null = null;
+  if (vista.fase === "EN_CURSO") {
+    slot = shell.main.querySelector<HTMLElement>("#mesa-footer-chat");
+  } else if (vista.fase === "FINALIZADA") {
+    slot = shell.main.querySelector<HTMLElement>("#pantalla-fin-chat");
+  }
+  montarPanelChat({ slot, vista, alEnviar: enviarChat });
+}
+
 // ===========================================================================
 // Render principal
 // ===========================================================================
@@ -329,6 +350,7 @@ function montarRankingEnFooter(estado: EstadoCliente): void {
 function renderApp(estado: EstadoCliente): void {
   renderizarFase(estado, shell, { lobby: accionesLobby, mesa: accionesMesa });
   montarRankingEnFooter(estado);
+  montarChatEnFooter(estado);
   montarPanelHistorial(estado.vista);
   programarTickTemporizador(estado.vista);
 }

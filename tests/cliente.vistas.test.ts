@@ -21,7 +21,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EstadoCliente } from "../src/cliente/estado";
-import type { Carta, Ficha, VistaPartida } from "../src/cliente/protocolo";
+import type {
+  Carta,
+  Ficha,
+  MensajeChat,
+  VistaPartida,
+} from "../src/cliente/protocolo";
 import { BOLSILLO_OCULTO } from "../src/dominio/proyeccion";
 import { CategoriaMano } from "../src/dominio/modelos";
 import { renderizarMesa, type AccionesMesa } from "../src/cliente/vistas/mesa";
@@ -38,6 +43,8 @@ import {
 import { htmlAvisoTerminacionDesconexion } from "../src/cliente/vistas/mesa/mesaPokerHtml";
 import { actualizarAvisoDesconexion } from "../src/cliente/vistas/mesa/mesaAvisoDesconexion";
 import { montarPanelHistorial } from "../src/cliente/vistas/mesa/historialGolpes";
+import { montarPanelChat } from "../src/cliente/vistas/mesa/chat";
+import { renderizarResultado } from "../src/cliente/vistas/showdown";
 import {
   CATEGORIAS_RANKING,
   NOMBRE_CATEGORIA,
@@ -144,6 +151,7 @@ function vistaEnCurso(): VistaPartida {
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
     terminacionPorDesconexion: null,
+    historialChat: [],
   };
 }
 
@@ -240,18 +248,22 @@ beforeEach(() => {
 // ===========================================================================
 
 describe("Vista de la mesa: restricciones de comunicación (10.1, 10.5)", () => {
-  it("no ofrece ningún campo de chat ni mensajería de texto libre", () => {
+  it("no incrusta un campo de texto libre en el render de la Mesa (el chat es un panel global aparte)", () => {
     const contenedor = nuevoContenedor();
     renderizarMesa(contenedor, estadoCliente(vistaEnCurso()), ACCIONES_INERTES);
 
-    // No hay áreas de texto ni campos de entrada de texto (chat libre).
+    // El render de la Mesa no incrusta áreas ni campos de entrada de texto: el
+    // chat vive en un overlay global (montado en document.body por
+    // montarPanelChat), nunca dentro del propio HTML de la Mesa.
     expect(contenedor.querySelectorAll("textarea")).toHaveLength(0);
     const camposTexto = contenedor.querySelectorAll<HTMLInputElement>("input");
     expect(camposTexto).toHaveLength(0);
 
-    // Ninguna pista textual de un canal de mensajería en el HTML.
-    expect(contenedor.innerHTML).not.toMatch(/\bchat\b/i);
-    expect(contenedor.innerHTML).not.toMatch(/\bmensaje[s]?\b/i);
+    // Se reserva el hueco del botón del chat en la barra, pero queda vacío hasta
+    // que el panel global se monta explícitamente.
+    const slotChat = contenedor.querySelector("#mesa-footer-chat");
+    expect(slotChat).not.toBeNull();
+    expect(slotChat?.childElementCount ?? -1).toBe(0);
   });
 
   it("no ofrece ningún botón para mostrar, revelar o comunicar las Cartas de Bolsillo", () => {
@@ -885,6 +897,284 @@ describe("Ranking_de_Manos en orden (11.3)", () => {
   });
 });
 
+// ===========================================================================
+// Chat de la Partida: panel lateral izquierdo
+// ===========================================================================
+
+describe("Chat de la Partida: panel lateral (montarPanelChat)", () => {
+  function nuevoSlot(): HTMLElement {
+    const slot = document.createElement("div");
+    slot.id = "slot-chat-test";
+    document.body.appendChild(slot);
+    return slot;
+  }
+
+  function mensaje(
+    id: string,
+    autorId: string,
+    autorNombre: string,
+    texto: string,
+  ): MensajeChat {
+    return { id, autorId, autorNombre, texto, enviadoEnMs: 0 };
+  }
+
+  function vistaConChat(
+    historialChat: MensajeChat[],
+    overrides: Partial<VistaPartida> = {},
+  ): VistaPartida {
+    return { ...vistaEnCurso(), historialChat, ...overrides };
+  }
+
+  it("monta el botón 'Chat' en el slot y crea el overlay con panel y formulario", () => {
+    const slot = nuevoSlot();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+
+    const boton = document.getElementById("chat-boton");
+    expect(boton).not.toBeNull();
+    expect((boton?.textContent ?? "").trim()).toBe("Chat");
+    expect(boton?.parentElement).toBe(slot);
+
+    const overlay = document.getElementById("chat-overlay");
+    expect(overlay).not.toBeNull();
+    expect(overlay?.hidden).toBe(true);
+    expect(overlay?.querySelector(".chat-overlay__fondo")).not.toBeNull();
+    expect(overlay?.querySelector(".chat-panel")).not.toBeNull();
+    expect(overlay?.querySelector(".chat-panel__form")).not.toBeNull();
+    expect(overlay?.querySelector(".chat-panel__input")).not.toBeNull();
+  });
+
+  it("es idempotente: no duplica el botón ni el overlay en sucesivos montajes", () => {
+    const slot = nuevoSlot();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+
+    expect(document.querySelectorAll("#chat-boton")).toHaveLength(1);
+    expect(document.querySelectorAll("#chat-overlay")).toHaveLength(1);
+  });
+
+  it("abre el panel (clase chat-overlay--visible) al pulsar el botón", async () => {
+    const slot = nuevoSlot();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+
+    const boton = document.getElementById("chat-boton");
+    const overlay = document.getElementById("chat-overlay");
+    boton?.dispatchEvent(new Event("click"));
+
+    // La clase visible se añade dentro de requestAnimationFrame.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(overlay?.hidden).toBe(false);
+    expect(overlay?.classList.contains("chat-overlay--visible")).toBe(true);
+    expect(boton?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("renderiza los mensajes del historialChat, marcando los propios", () => {
+    const slot = nuevoSlot();
+    const historial = [
+      mensaje("m1", "j2", "La Sombra", "Cuidado con las alarmas"),
+      mensaje("m2", "j1", "El Cerebro", "Voy por la bóveda del centro"),
+    ];
+    montarPanelChat({
+      slot,
+      vista: vistaConChat(historial),
+      alEnviar: () => {},
+    });
+
+    const items = document.querySelectorAll("#chat-overlay .chat-mensaje");
+    expect(items).toHaveLength(2);
+
+    const textos = Array.from(items).map((li) =>
+      (li.querySelector(".chat-mensaje__texto")?.textContent ?? "").trim(),
+    );
+    expect(textos).toEqual([
+      "Cuidado con las alarmas",
+      "Voy por la bóveda del centro",
+    ]);
+
+    // El mensaje del jugador local ('j1') se marca como propio.
+    const propios = document.querySelectorAll(
+      "#chat-overlay .chat-mensaje--propio",
+    );
+    expect(propios).toHaveLength(1);
+    expect(
+      (propios[0]?.querySelector(".chat-mensaje__texto")?.textContent ?? "")
+        .trim(),
+    ).toBe("Voy por la bóveda del centro");
+  });
+
+  it("muestra un mensaje de lista vacía cuando no hay historial", () => {
+    const slot = nuevoSlot();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+
+    expect(document.querySelectorAll("#chat-overlay .chat-mensaje")).toHaveLength(
+      0,
+    );
+    expect(
+      document.querySelector("#chat-overlay .chat-panel__vacio"),
+    ).not.toBeNull();
+  });
+
+  it("al enviar el formulario invoca alEnviar con el texto y limpia el input", () => {
+    const slot = nuevoSlot();
+    const alEnviar = vi.fn();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar });
+
+    const form = document.querySelector<HTMLFormElement>(
+      "#chat-overlay .chat-panel__form",
+    );
+    const input = document.querySelector<HTMLInputElement>(
+      "#chat-overlay .chat-panel__input",
+    );
+    expect(form).not.toBeNull();
+    expect(input).not.toBeNull();
+
+    input!.value = "  Reunión en el flop  ";
+    form!.dispatchEvent(new Event("submit", { cancelable: true }));
+
+    expect(alEnviar).toHaveBeenCalledTimes(1);
+    expect(alEnviar).toHaveBeenCalledWith("Reunión en el flop");
+    expect(input!.value).toBe("");
+  });
+
+  it("no invoca alEnviar si el mensaje está vacío o solo tiene espacios", () => {
+    const slot = nuevoSlot();
+    const alEnviar = vi.fn();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar });
+
+    const form = document.querySelector<HTMLFormElement>(
+      "#chat-overlay .chat-panel__form",
+    );
+    const input = document.querySelector<HTMLInputElement>(
+      "#chat-overlay .chat-panel__input",
+    );
+    input!.value = "     ";
+    form!.dispatchEvent(new Event("submit", { cancelable: true }));
+
+    expect(alEnviar).not.toHaveBeenCalled();
+  });
+
+  it("para un espectador oculta el formulario y muestra el aviso de solo lectura", () => {
+    const slot = nuevoSlot();
+    montarPanelChat({
+      slot,
+      vista: vistaConChat([], {
+        esEspectador: true,
+        perspectivaJugadorId: "obs1",
+      }),
+      alEnviar: () => {},
+    });
+
+    const form = document.querySelector<HTMLElement>(
+      "#chat-overlay .chat-panel__form",
+    );
+    const aviso = document.querySelector<HTMLElement>(
+      "#chat-overlay .chat-panel__solo-lectura",
+    );
+    expect(form?.hidden).toBe(true);
+    expect(aviso?.hidden).toBe(false);
+  });
+
+  it("con slot null (fase LOBBY) oculta el botón y lo saca del slot", () => {
+    const slot = nuevoSlot();
+    montarPanelChat({ slot, vista: vistaConChat([]), alEnviar: () => {} });
+
+    const boton = document.getElementById("chat-boton");
+    expect(boton?.parentElement).toBe(slot);
+
+    montarPanelChat({ slot: null, vista: vistaConChat([]), alEnviar: () => {} });
+    expect(boton?.hidden).toBe(true);
+    expect(boton?.parentElement).toBe(document.body);
+  });
+});
+
+// ===========================================================================
+// Pantalla de fin: terminar la Partida (cualquier jugador, no espectador)
+// ===========================================================================
+
+describe("Pantalla de fin: botón 'Terminar partida' (renderizarResultado)", () => {
+  function vistaFinalizada(overrides: Partial<VistaPartida> = {}): VistaPartida {
+    return {
+      ...vistaEnCurso(),
+      fase: "FINALIZADA",
+      golpeActual: null,
+      resultado: "VICTORIA",
+      bovedasDoradas: 3,
+      ...overrides,
+    };
+  }
+
+  it("un jugador NO anfitrión ve el botón 'Terminar partida'", () => {
+    const contenedor = nuevoContenedor();
+    renderizarResultado(
+      contenedor,
+      vistaFinalizada({ perspectivaJugadorId: "j2", anfitrionId: "j1" }),
+      { terminarPartida() {} },
+    );
+
+    const boton = contenedor.querySelector<HTMLButtonElement>(
+      "#boton-terminar-partida",
+    );
+    expect(boton).not.toBeNull();
+    expect((boton?.textContent ?? "").trim()).toBe("Terminar partida");
+  });
+
+  it("el anfitrión también ve el botón 'Terminar partida'", () => {
+    const contenedor = nuevoContenedor();
+    renderizarResultado(
+      contenedor,
+      vistaFinalizada({ perspectivaJugadorId: "j1", anfitrionId: "j1" }),
+      { terminarPartida() {} },
+    );
+
+    expect(
+      contenedor.querySelector("#boton-terminar-partida"),
+    ).not.toBeNull();
+  });
+
+  it("un espectador NO ve el botón 'Terminar partida' pero sí el slot del chat", () => {
+    const contenedor = nuevoContenedor();
+    renderizarResultado(
+      contenedor,
+      vistaFinalizada({
+        perspectivaJugadorId: "obs1",
+        anfitrionId: "j1",
+        esEspectador: true,
+      }),
+      { terminarPartida() {} },
+    );
+
+    expect(contenedor.querySelector("#boton-terminar-partida")).toBeNull();
+    expect(contenedor.querySelector("#pantalla-fin-chat")).not.toBeNull();
+  });
+
+  it("sin acciones (undefined) no se muestra el botón, pero sí el slot del chat", () => {
+    const contenedor = nuevoContenedor();
+    renderizarResultado(
+      contenedor,
+      vistaFinalizada({ perspectivaJugadorId: "j2", anfitrionId: "j1" }),
+    );
+
+    expect(contenedor.querySelector("#boton-terminar-partida")).toBeNull();
+    expect(contenedor.querySelector("#pantalla-fin-chat")).not.toBeNull();
+  });
+
+  it("al pulsar 'Terminar partida' invoca la acción terminarPartida", () => {
+    const contenedor = nuevoContenedor();
+    const terminarPartida = vi.fn();
+    renderizarResultado(
+      contenedor,
+      vistaFinalizada({ perspectivaJugadorId: "j2", anfitrionId: "j1" }),
+      { terminarPartida },
+    );
+
+    contenedor
+      .querySelector<HTMLButtonElement>("#boton-terminar-partida")
+      ?.dispatchEvent(new Event("click"));
+
+    expect(terminarPartida).toHaveBeenCalledTimes(1);
+  });
+});
+
 const ACCIONES_LOBBY_INERTES: AccionesLobby = {
   entrarComoLadron() {},
   entrarComoEspectador() {},
@@ -924,6 +1214,7 @@ describe("Vista de lobby: pantalla de título", () => {
           ultimoResultadoGolpe: null,
           ultimoShowdownResuelto: null,
           terminacionPorDesconexion: null,
+          historialChat: [],
           ajustes: { sinKickers: true },
         },
         error: null,
@@ -983,6 +1274,7 @@ describe("Vista de lobby: volver al menú", () => {
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
       terminacionPorDesconexion: null,
+      historialChat: [],
       ajustes: { sinKickers: true },
     };
   }
@@ -1007,6 +1299,7 @@ describe("Vista de lobby: volver al menú", () => {
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
       terminacionPorDesconexion: null,
+      historialChat: [],
       ajustes: { sinKickers: true },
     };
   }
@@ -1087,6 +1380,7 @@ describe("Vista de lobby: iniciar partida", () => {
       ultimoResultadoGolpe: null,
       ultimoShowdownResuelto: null,
       terminacionPorDesconexion: null,
+      historialChat: [],
       ajustes: { sinKickers: true },
     };
   }

@@ -180,6 +180,7 @@ export function iniciarPartida(
     historialShowdowns: [],
     ultimoResultadoGolpe: null,
     ultimoShowdownResuelto: null,
+    historialChat: [],
   };
 }
 

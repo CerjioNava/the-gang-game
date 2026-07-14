@@ -62,10 +62,13 @@ import {
   type EstadoPartida,
   type EventoJuego,
   type Ficha,
+  type MensajeChat,
   type Semilla,
   type AjustesPartida,
   AJUSTES_POR_DEFECTO,
 } from "../dominio/modelos";
+import { agregarMensajeChat, sanearTextoChat } from "../dominio/chat";
+import { randomUUID } from "node:crypto";
 import { type MensajeEntrante, type MensajeSaliente } from "./tipos";
 
 // ===========================================================================
@@ -105,6 +108,8 @@ export const MensajeCliente = {
   INTERCAMBIAR_JUGADOR: "INTERCAMBIAR_JUGADOR",
   /** Solicitar las Cartas de Bolsillo de un Jugador. payload: `{ objetivoId: string }`. */
   SOLICITAR_CARTAS: "SOLICITAR_CARTAS",
+  /** Enviar un mensaje al chat de la Partida (solo jugadores). payload: `{ texto: string }`. */
+  ENVIAR_CHAT: "ENVIAR_CHAT",
 } as const;
 
 /**
@@ -294,6 +299,7 @@ export class Coordinador {
       historialGolpes: [],
       historialShowdowns: [],
       ultimoResultadoGolpe: null,
+      historialChat: [],
     };
   }
 
@@ -439,6 +445,13 @@ export class Coordinador {
           return rechazoCartas;
         }
         return this.#solicitarCartas(jugadorId, mensaje.payload);
+      }
+      case MensajeCliente.ENVIAR_CHAT: {
+        const rechazoChat = this.#rechazarSiEspectador(jugadorId);
+        if (rechazoChat !== null) {
+          return rechazoChat;
+        }
+        return this.#enviarChat(jugadorId, mensaje.payload);
       }
       default:
         return {
@@ -783,17 +796,6 @@ export class Coordinador {
   }
 
   #terminarPartida(solicitanteId: string): ResultadoCoordinador {
-    if (this.#anfitrionId !== solicitanteId) {
-      return {
-        clase: "ERROR",
-        error: {
-          codigo: "ACCION_NO_PERMITIDA",
-          mensaje:
-            "Solo el anfitrión puede terminar la Partida y volver al Lobby.",
-        },
-      };
-    }
-
     if (
       this.#estado.fase !== "EN_CURSO" &&
       this.#estado.fase !== "FINALIZADA"
@@ -807,8 +809,72 @@ export class Coordinador {
       };
     }
 
+    // Abortar una Partida EN_CURSO sigue siendo privilegio del anfitrión.
+    // Una vez FINALIZADA (VICTORIA/DERROTA), cualquier jugador puede terminar.
+    if (
+      this.#estado.fase === "EN_CURSO" &&
+      this.#anfitrionId !== solicitanteId
+    ) {
+      return {
+        clase: "ERROR",
+        error: {
+          codigo: "ACCION_NO_PERMITIDA",
+          mensaje:
+            "Solo el anfitrión puede terminar la Partida y volver al Lobby.",
+        },
+      };
+    }
+
     this.#temporizadorFinAt = null;
     this.#estado = volverAlLobby(this.#estado);
+    return { clase: "DIFUNDIR", eventos: [] };
+  }
+
+  #enviarChat(jugadorId: string, payload: unknown): ResultadoCoordinador {
+    if (
+      this.#estado.fase !== "EN_CURSO" &&
+      this.#estado.fase !== "FINALIZADA"
+    ) {
+      return {
+        clase: "ERROR",
+        error: {
+          codigo: "ACCION_NO_PERMITIDA",
+          mensaje: "El chat solo está disponible durante la Partida.",
+        },
+      };
+    }
+
+    if (!esObjeto(payload)) {
+      return {
+        clase: "IGNORADO",
+        error: errorGenerico("Falta el texto del mensaje de chat."),
+      };
+    }
+
+    const texto = sanearTextoChat(payload["texto"]);
+    if (texto === null) {
+      return {
+        clase: "IGNORADO",
+        error: errorGenerico("El mensaje de chat está vacío."),
+      };
+    }
+
+    const autor = this.#estado.jugadores.find((j) => j.id === jugadorId);
+    if (autor === undefined) {
+      return {
+        clase: "ERROR",
+        error: errorGenerico("Solo los jugadores pueden escribir en el chat."),
+      };
+    }
+
+    const mensaje: MensajeChat = {
+      id: randomUUID(),
+      autorId: autor.id,
+      autorNombre: autor.nombre,
+      texto,
+      enviadoEnMs: Date.now(),
+    };
+    this.#estado = agregarMensajeChat(this.#estado, mensaje);
     return { clase: "DIFUNDIR", eventos: [] };
   }
 

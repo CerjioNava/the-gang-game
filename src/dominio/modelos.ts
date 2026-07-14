@@ -151,6 +151,20 @@ export interface SnapshotShowdownResuelto {
   fichas: EstadoFichas;
 }
 
+/** Mensaje del chat de la Partida, escrito por un Jugador. */
+export interface MensajeChat {
+  /** Identificador único del mensaje. */
+  id: string;
+  /** Id del Jugador autor. */
+  autorId: string;
+  /** Nombre del Jugador autor al momento de enviar. */
+  autorNombre: string;
+  /** Texto del mensaje, ya saneado. */
+  texto: string;
+  /** Marca de tiempo de envío en milisegundos. */
+  enviadoEnMs: number;
+}
+
 /** Ventana máxima de reconexión tras desconexión en partida (ms). */
 export const TERMINACION_DESCONEXION_MS = 10_000;
 
@@ -261,6 +275,8 @@ export interface EstadoPartida {
   ultimoShowdownResuelto?: SnapshotShowdownResuelto | null;
   /** Cuenta atrás por desconexión de un ladrón, o null si no hay. */
   terminacionPorDesconexion?: TerminacionPorDesconexion | null;
+  /** Historial de mensajes del chat de la Partida (se limpia al volver al Lobby). */
+  historialChat?: MensajeChat[];
 }
 
 // ===========================================================================

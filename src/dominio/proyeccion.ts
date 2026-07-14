@@ -24,6 +24,7 @@ import {
   type EstadoPartida,
   type FasePartida,
   type Jugador,
+  type MensajeChat,
   type ResultadoGolpeReciente,
   type ResultadoPartida,
   type Ronda,
@@ -147,6 +148,8 @@ export interface VistaPartida {
   ultimoShowdownResuelto: VistaShowdownResuelto | null;
   /** Cuenta atrás por desconexión de un ladrón, o null. */
   terminacionPorDesconexion: TerminacionPorDesconexion | null;
+  /** Historial de mensajes del chat de la Partida. */
+  historialChat: MensajeChat[];
 }
 
 /** Vista del Showdown ya resuelto (persiste hasta movimiento de fichas). */
@@ -366,6 +369,9 @@ export function proyectarEstadoPara(
     ultimoResultadoGolpe: estado.ultimoResultadoGolpe ?? null,
     ultimoShowdownResuelto: proyectarShowdownResuelto(estado),
     terminacionPorDesconexion: estado.terminacionPorDesconexion ?? null,
+    historialChat: (estado.historialChat ?? []).map((mensaje) => ({
+      ...mensaje,
+    })),
     ...(estado.ajustes !== undefined ? { ajustes: estado.ajustes } : {}),
   };
 }

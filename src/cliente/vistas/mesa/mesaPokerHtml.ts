@@ -420,6 +420,7 @@ export function htmlMesaPoker(ctx: MesaPokerContexto): string {
         </div>
         <p class="mesa-poker__lema">Un golpe perfecto se planea en silencio.</p>
         <div class="mesa-poker__bar-acciones">
+          <div class="mesa-poker__chat-slot" id="mesa-footer-chat"></div>
           <div class="mesa-poker__ranking-slot" id="mesa-footer-ranking"></div>
           <div class="mesa-poker__acciones-slot" id="mesa-poker-acciones"></div>
         </div>
